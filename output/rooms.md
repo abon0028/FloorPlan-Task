@@ -12,10 +12,8 @@
 - 1st FLOOR
 - 1st FLOOR: OFFICES M33-45
 
-## Rooms / Classrooms (50)
+## Rooms / Classrooms (48)
 
-- CARLOW COLLEGE ST.PATRICK'S Thend Level Edacation
-- CAMPUS
 - STUDENT RESOURCE BUILDING
 - OFFICES S1-8
 - STUDENTS' UNION
