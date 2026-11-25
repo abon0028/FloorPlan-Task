@@ -6,8 +6,9 @@ the "campus management" feature end to end --
   - a searchable list of every room/classroom found on the floor plan
   - the floor plan image itself, with clickable highlights on every room
     whose real location was confidently matched (see map_locations.py)
-  - a basic "book this room" action (stored in the browser only --
-    there's no real backend yet, this is a working prototype of the UI)
+  - a date picker + per-time-slot booking (green = available, red = booked
+    for that slot on that date), stored in the browser only -- there's no
+    real backend yet, this is a working prototype of the UI
 
 Run this again any time output/rooms.json changes (e.g. after re-running
 map_locations.py) to regenerate app.html with the latest data.
@@ -37,9 +38,11 @@ TEMPLATE = """<!DOCTYPE html>
     --border: #e5e7eb;
     --accent: #2563eb;
     --accent-bg: rgba(37, 99, 235, 0.18);
-    --accent-bg-hover: rgba(37, 99, 235, 0.32);
-    --booked: #16a34a;
-    --booked-bg: rgba(22, 163, 74, 0.15);
+    --available: #16a34a;
+    --available-bg: rgba(22, 163, 74, 0.18);
+    --available-bg-hover: rgba(22, 163, 74, 0.30);
+    --unavailable: #dc2626;
+    --unavailable-bg: rgba(220, 38, 38, 0.18);
   }
   * { box-sizing: border-box; }
   body {
@@ -78,19 +81,15 @@ TEMPLATE = """<!DOCTYPE html>
   .map-wrap img { width: 100%; height: auto; display: block; border-radius: 6px; }
   .hotspot {
     position: absolute;
-    border: 2px solid var(--accent);
-    background: var(--accent-bg);
+    border: 2px solid var(--available);
+    background: var(--available-bg);
     border-radius: 3px;
     cursor: pointer;
-    transition: background 0.15s, transform 0.15s;
+    transition: background 0.15s;
   }
-  .hotspot:hover { background: var(--accent-bg-hover); }
-  .hotspot.selected {
-    background: rgba(234, 88, 12, 0.35);
-    border-color: #ea580c;
-    z-index: 2;
-  }
-  .hotspot.booked { border-color: var(--booked); background: var(--booked-bg); }
+  .hotspot:hover { background: var(--available-bg-hover); }
+  .hotspot.unavailable { border-color: var(--unavailable); background: var(--unavailable-bg); }
+  .hotspot.selected { box-shadow: 0 0 0 3px rgba(26, 26, 46, 0.45); z-index: 2; }
   .list-panel {
     flex: 1 1 380px;
     min-width: 300px;
@@ -105,13 +104,20 @@ TEMPLATE = """<!DOCTYPE html>
     padding: 12px;
     border-bottom: 1px solid var(--border);
   }
-  .list-panel input[type=text] {
+  .list-panel input[type=text], .list-panel input[type=date] {
     width: 100%;
     padding: 8px 10px;
     border: 1px solid var(--border);
     border-radius: 6px;
     font-size: 14px;
   }
+  .date-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .date-row label { font-size: 13px; color: var(--muted); white-space: nowrap; }
   .available-toggle {
     display: flex;
     align-items: center;
@@ -151,14 +157,15 @@ TEMPLATE = """<!DOCTYPE html>
   .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
   .dot.mapped { background: var(--accent); }
   .dot.unmapped { background: #d1d5db; }
-  .badge {
+  .pill {
     font-size: 10px;
     padding: 2px 6px;
     border-radius: 999px;
-    background: var(--booked-bg);
-    color: var(--booked);
     font-weight: 600;
+    white-space: nowrap;
   }
+  .pill.available { background: var(--available-bg); color: var(--available); }
+  .pill.unavailable { background: var(--unavailable-bg); color: var(--unavailable); }
   .detail-panel {
     padding: 14px;
     border-top: 1px solid var(--border);
@@ -166,18 +173,24 @@ TEMPLATE = """<!DOCTYPE html>
   }
   .detail-panel h2 { margin: 0 0 4px; font-size: 16px; }
   .detail-panel .wing-label { color: var(--muted); font-size: 13px; margin-bottom: 10px; }
-  .detail-panel button {
-    width: 100%;
-    padding: 10px;
+  .slot-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+  .slot {
+    padding: 8px 6px;
     border: none;
     border-radius: 6px;
-    background: var(--accent);
-    color: white;
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 600;
     cursor: pointer;
+    text-align: center;
   }
-  .detail-panel button.booked { background: var(--booked); }
+  .slot.available { background: var(--available-bg); color: var(--available); }
+  .slot.available:hover { background: var(--available-bg-hover); }
+  .slot.unavailable { background: var(--unavailable-bg); color: var(--unavailable); }
+  .slot-hint { font-size: 11px; color: var(--muted); margin: 8px 0; }
   .detail-panel .no-location {
     font-size: 12px;
     color: var(--muted);
@@ -189,7 +202,7 @@ TEMPLATE = """<!DOCTYPE html>
 <body>
 <header>
   <h1>__TITLE__ &mdash; Campus Map</h1>
-  <p>__MAPPED_COUNT__ of __TOTAL_COUNT__ rooms have a confirmed location on the map (blue dot). The rest are listed but not yet clickable.</p>
+  <p>__MAPPED_COUNT__ of __TOTAL_COUNT__ rooms have a confirmed location on the map. The rest are listed but not yet clickable. Pick a date to see per-slot availability.</p>
 </header>
 <div class="layout">
   <div class="map-panel">
@@ -200,9 +213,13 @@ TEMPLATE = """<!DOCTYPE html>
   <div class="list-panel">
     <div class="search">
       <input type="text" id="searchBox" placeholder="Search rooms...">
+      <div class="date-row">
+        <label for="bookingDate">Date:</label>
+        <input type="date" id="bookingDate">
+      </div>
       <label class="available-toggle">
         <input type="checkbox" id="availableOnly">
-        Show available rooms only
+        Show available rooms only (for this date)
       </label>
     </div>
     <div class="room-list" id="roomList"></div>
@@ -213,20 +230,34 @@ TEMPLATE = """<!DOCTYPE html>
 <script>
 const ROOMS = __ROOMS_JSON__;
 const IMAGE_SIZE = __IMAGE_SIZE_JSON__;
+const TIME_SLOTS = [
+  '09:00-10:00', '10:00-11:00', '11:00-12:00', '12:00-13:00',
+  '13:00-14:00', '14:00-15:00', '15:00-16:00', '16:00-17:00',
+];
 
 const roomListEl = document.getElementById('roomList');
 const mapWrap = document.getElementById('mapWrap');
 const detailPanel = document.getElementById('detailPanel');
 const searchBox = document.getElementById('searchBox');
 const availableOnlyBox = document.getElementById('availableOnly');
+const dateInput = document.getElementById('bookingDate');
 
 let selectedId = null;
 
-function bookingKey(room) { return 'booking:' + room.name; }
-function isBooked(room) { return localStorage.getItem(bookingKey(room)) === '1'; }
-function setBooked(room, value) {
-  if (value) localStorage.setItem(bookingKey(room), '1');
-  else localStorage.removeItem(bookingKey(room));
+function todayStr() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+dateInput.value = todayStr();
+
+function slotKey(room, date, slot) { return 'slotbooking:' + room.name + '|' + date + '|' + slot; }
+function isSlotBooked(room, date, slot) { return localStorage.getItem(slotKey(room, date, slot)) === '1'; }
+function setSlotBooked(room, date, slot, value) {
+  if (value) localStorage.setItem(slotKey(room, date, slot), '1');
+  else localStorage.removeItem(slotKey(room, date, slot));
+}
+function isFullyBooked(room, date) {
+  return TIME_SLOTS.every(slot => isSlotBooked(room, date, slot));
 }
 
 function pctBox(box) {
@@ -239,30 +270,33 @@ function pctBox(box) {
 }
 
 function renderHotspots() {
+  const date = dateInput.value;
   mapWrap.querySelectorAll('.hotspot').forEach(el => el.remove());
   ROOMS.forEach((room, i) => {
     if (!room.location_box) return;
-    if (availableOnlyBox.checked && isBooked(room)) return;
+    const fullyBooked = isFullyBooked(room, date);
+    if (availableOnlyBox.checked && fullyBooked) return;
     const el = document.createElement('div');
-    el.className = 'hotspot' + (i === selectedId ? ' selected' : '') + (isBooked(room) ? ' booked' : '');
+    el.className = 'hotspot' + (fullyBooked ? ' unavailable' : '') + (i === selectedId ? ' selected' : '');
     const p = pctBox(room.location_box);
     Object.assign(el.style, p);
-    el.title = room.name;
+    el.title = room.name + (fullyBooked ? ' (fully booked on ' + date + ')' : ' (available on ' + date + ')');
     el.addEventListener('click', () => selectRoom(i));
     mapWrap.appendChild(el);
   });
 }
 
 function renderList(filterText) {
+  const date = dateInput.value;
   const filtered = ROOMS
     .map((room, i) => ({ room, i }))
     .filter(({ room }) => !filterText || room.name.toLowerCase().includes(filterText.toLowerCase()))
-    .filter(({ room }) => !availableOnlyBox.checked || !isBooked(room));
+    .filter(({ room }) => !availableOnlyBox.checked || !isFullyBooked(room, date));
 
   roomListEl.innerHTML = '';
   if (filtered.length === 0) {
     roomListEl.innerHTML = availableOnlyBox.checked
-      ? '<div class="empty-state">No available rooms match your search.</div>'
+      ? '<div class="empty-state">No available rooms match your search for this date.</div>'
       : '<div class="empty-state">No rooms match your search.</div>';
     return;
   }
@@ -283,12 +317,13 @@ function renderList(filterText) {
     groupEl.innerHTML = `<h3>${wing} (${byWing[wing].length})</h3>`;
     byWing[wing].forEach(i => {
       const room = ROOMS[i];
+      const fullyBooked = isFullyBooked(room, date);
       const item = document.createElement('div');
       item.className = 'room-item' + (i === selectedId ? ' selected' : '');
       item.innerHTML = `
         <span class="dot ${room.location_box ? 'mapped' : 'unmapped'}"></span>
         <span class="name">${room.name}</span>
-        ${isBooked(room) ? '<span class="badge">Booked</span>' : ''}
+        <span class="pill ${fullyBooked ? 'unavailable' : 'available'}">${fullyBooked ? 'Fully booked' : 'Available'}</span>
       `;
       item.addEventListener('click', () => selectRoom(i));
       groupEl.appendChild(item);
@@ -300,19 +335,28 @@ function renderList(filterText) {
 function renderDetail() {
   if (selectedId === null) { detailPanel.style.display = 'none'; return; }
   const room = ROOMS[selectedId];
-  const booked = isBooked(room);
+  const date = dateInput.value;
   detailPanel.style.display = 'block';
   detailPanel.innerHTML = `
     <h2>${room.name}</h2>
     <div class="wing-label">${room.wing || 'Not part of a numbered wing'}</div>
-    <button id="bookBtn" class="${booked ? 'booked' : ''}">${booked ? 'Booked - Click to Cancel' : 'Book This Room'}</button>
+    <div class="slot-hint">Time slots for ${date} &mdash; click green to book, red to cancel</div>
+    <div class="slot-grid" id="slotGrid"></div>
     ${!room.location_box ? '<div class="no-location">Location on the map not yet confirmed for this room.</div>' : ''}
   `;
-  document.getElementById('bookBtn').addEventListener('click', () => {
-    setBooked(room, !booked);
-    renderDetail();
-    renderList(searchBox.value);
-    renderHotspots();
+  const slotGrid = document.getElementById('slotGrid');
+  TIME_SLOTS.forEach(slot => {
+    const booked = isSlotBooked(room, date, slot);
+    const btn = document.createElement('button');
+    btn.className = 'slot ' + (booked ? 'unavailable' : 'available');
+    btn.textContent = slot + (booked ? ' - Booked' : '');
+    btn.addEventListener('click', () => {
+      setSlotBooked(room, date, slot, !booked);
+      renderDetail();
+      renderList(searchBox.value);
+      renderHotspots();
+    });
+    slotGrid.appendChild(btn);
   });
 }
 
@@ -325,12 +369,17 @@ function selectRoom(i) {
 
 searchBox.addEventListener('input', () => renderList(searchBox.value));
 availableOnlyBox.addEventListener('change', () => {
-  if (selectedId !== null && availableOnlyBox.checked && isBooked(ROOMS[selectedId])) {
+  if (selectedId !== null && availableOnlyBox.checked && isFullyBooked(ROOMS[selectedId], dateInput.value)) {
     selectedId = null;
     renderDetail();
   }
   renderList(searchBox.value);
   renderHotspots();
+});
+dateInput.addEventListener('change', () => {
+  renderList(searchBox.value);
+  renderHotspots();
+  renderDetail();
 });
 
 renderList('');
