@@ -123,6 +123,16 @@ TEMPLATE = """<!DOCTYPE html>
     user-select: none;
     white-space: nowrap;
   }
+  .closed-notice {
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fde68a;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 10px;
+  }
   .grid-scroll { overflow-x: auto; }
   table.schedule { border-collapse: collapse; width: 100%; min-width: 760px; }
   table.schedule th, table.schedule td { border: 1px solid #94a3b8; }
@@ -172,6 +182,7 @@ TEMPLATE = """<!DOCTYPE html>
   td.slot-cell.available:hover { background: var(--available-bg-hover); }
   td.slot-cell.unavailable { background: var(--unavailable-bg); }
   td.slot-cell.unavailable:hover { background: var(--unavailable-bg-hover); }
+  td.slot-cell.closed { background: #f1f5f9; cursor: not-allowed; }
   .empty-state { padding: 16px; color: var(--muted); font-size: 13px; }
   .map-popover {
     position: absolute;
@@ -242,6 +253,7 @@ TEMPLATE = """<!DOCTYPE html>
       Available rooms only
     </label>
   </div>
+  <div class="closed-notice" id="closedNotice" style="display:none"></div>
   <div class="grid-scroll">
     <table class="schedule" id="scheduleTable"></table>
   </div>
@@ -253,7 +265,14 @@ const IMAGE_SIZE = __IMAGE_SIZE_JSON__;
 const TIME_SLOTS = [
   '09:00-10:00', '10:00-11:00', '11:00-12:00', '12:00-13:00',
   '13:00-14:00', '14:00-15:00', '15:00-16:00', '16:00-17:00',
+  '17:00-18:00', '18:00-19:00', '19:00-20:00',
 ];
+
+// Placeholder public holiday list -- just a couple of fixed-date examples
+// (New Year's Day, Christmas Day) so the mechanism has something to show.
+// Replace with your institution's actual closure dates (ISO yyyy-mm-dd);
+// dates that move every year (e.g. Easter Monday) need to be added per-year.
+const PUBLIC_HOLIDAYS = ['2026-01-01', '2026-12-25', '2026-12-26'];
 
 const mapWrap = document.getElementById('mapWrap');
 const scheduleTable = document.getElementById('scheduleTable');
@@ -273,6 +292,21 @@ function todayStr() {
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
 dateInput.value = todayStr();
+dateInput.min = todayStr(); // no booking dates before today
+
+function isWeekend(dateStr) {
+  const day = new Date(dateStr + 'T00:00:00').getDay();
+  return day === 0 || day === 6; // Sunday, Saturday
+}
+function isHoliday(dateStr) { return PUBLIC_HOLIDAYS.includes(dateStr); }
+function isPastDate(dateStr) { return dateStr < todayStr(); }
+function isBookableDate(dateStr) { return !isPastDate(dateStr) && !isWeekend(dateStr) && !isHoliday(dateStr); }
+function unbookableReason(dateStr) {
+  if (isPastDate(dateStr)) return 'Past date';
+  if (isHoliday(dateStr)) return 'Public holiday';
+  if (isWeekend(dateStr)) return 'Weekend';
+  return null;
+}
 
 function slotKey(room, date, slot) { return 'slotbooking:' + room.name + '|' + date + '|' + slot; }
 function isSlotBooked(room, date, slot) { return localStorage.getItem(slotKey(room, date, slot)) === '1'; }
@@ -281,6 +315,7 @@ function setSlotBooked(room, date, slot, value) {
   else localStorage.removeItem(slotKey(room, date, slot));
 }
 function isFullyBooked(room, date) {
+  if (!isBookableDate(date)) return true; // closed day -- nothing is available
   return TIME_SLOTS.every(slot => isSlotBooked(room, date, slot));
 }
 
@@ -313,6 +348,11 @@ function renderHotspots() {
 function renderPopoverSlots(room) {
   const date = dateInput.value;
   popoverSlots.innerHTML = '';
+  const reason = unbookableReason(date);
+  if (reason) {
+    popoverSlots.innerHTML = `<div class="closed-notice">${reason} &mdash; not bookable</div>`;
+    return;
+  }
   TIME_SLOTS.forEach(slot => {
     const booked = isSlotBooked(room, date, slot);
     const btn = document.createElement('button');
@@ -353,6 +393,15 @@ popoverClose.addEventListener('click', closeMapPopover);
 
 function renderGrid(filterText) {
   const date = dateInput.value;
+  const closedReason = unbookableReason(date);
+  const notice = document.getElementById('closedNotice');
+  if (closedReason) {
+    notice.textContent = closedReason + ' — no bookings available on this date.';
+    notice.style.display = 'block';
+  } else {
+    notice.style.display = 'none';
+  }
+
   const filtered = ROOMS
     .map((room, i) => ({ room, i }))
     .filter(({ room }) => !filterText || room.name.toLowerCase().includes(filterText.toLowerCase()))
@@ -405,15 +454,20 @@ function renderGrid(filterText) {
       tr.appendChild(nameTd);
 
       TIME_SLOTS.forEach(slot => {
-        const booked = isSlotBooked(room, date, slot);
         const td = document.createElement('td');
-        td.className = 'slot-cell ' + (booked ? 'unavailable' : 'available');
-        td.title = room.name + ' - ' + slot + (booked ? ' (booked, click to cancel)' : ' (available, click to book)');
-        td.addEventListener('click', () => {
-          setSlotBooked(room, date, slot, !booked);
-          renderGrid(searchBox.value);
-          renderHotspots();
-        });
+        if (closedReason) {
+          td.className = 'slot-cell closed';
+          td.title = room.name + ' - ' + slot + ' (' + closedReason + ', not bookable)';
+        } else {
+          const booked = isSlotBooked(room, date, slot);
+          td.className = 'slot-cell ' + (booked ? 'unavailable' : 'available');
+          td.title = room.name + ' - ' + slot + (booked ? ' (booked, click to cancel)' : ' (available, click to book)');
+          td.addEventListener('click', () => {
+            setSlotBooked(room, date, slot, !booked);
+            renderGrid(searchBox.value);
+            renderHotspots();
+          });
+        }
         tr.appendChild(td);
       });
 
