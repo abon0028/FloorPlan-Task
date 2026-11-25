@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Floorplan - Campus Map</title>
+<style>
+  :root {
+    --ink: #1a1a2e;
+    --muted: #6b7280;
+    --border: #e5e7eb;
+    --accent: #2563eb;
+    --accent-bg: rgba(37, 99, 235, 0.18);
+    --accent-bg-hover: rgba(37, 99, 235, 0.32);
+    --booked: #16a34a;
+    --booked-bg: rgba(22, 163, 74, 0.15);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    color: var(--ink);
+    background: #f8fafc;
+  }
+  header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    background: white;
+  }
+  header h1 { margin: 0; font-size: 20px; }
+  header p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+  .layout {
+    display: flex;
+    gap: 20px;
+    padding: 20px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .map-panel {
+    flex: 1 1 560px;
+    min-width: 320px;
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+  }
+  .map-wrap {
+    position: relative;
+    width: 100%;
+    line-height: 0;
+  }
+  .map-wrap img { width: 100%; height: auto; display: block; border-radius: 6px; }
+  .hotspot {
+    position: absolute;
+    border: 2px solid var(--accent);
+    background: var(--accent-bg);
+    border-radius: 3px;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.15s;
+  }
+  .hotspot:hover { background: var(--accent-bg-hover); }
+  .hotspot.selected {
+    background: rgba(234, 88, 12, 0.35);
+    border-color: #ea580c;
+    z-index: 2;
+  }
+  .hotspot.booked { border-color: var(--booked); background: var(--booked-bg); }
+  .list-panel {
+    flex: 1 1 380px;
+    min-width: 300px;
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    max-height: 80vh;
+  }
+  .list-panel .search {
+    padding: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .list-panel input[type=text] {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 14px;
+  }
+  .available-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 10px;
+    font-size: 13px;
+    color: var(--muted);
+    cursor: pointer;
+    user-select: none;
+  }
+  .available-toggle input { cursor: pointer; }
+  .room-list { overflow-y: auto; flex: 1; }
+  .wing-group h3 {
+    margin: 0;
+    padding: 8px 14px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    background: #f1f5f9;
+    position: sticky;
+    top: 0;
+  }
+  .room-item {
+    padding: 9px 14px;
+    border-bottom: 1px solid #f1f5f9;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+  }
+  .room-item:hover { background: #f8fafc; }
+  .room-item.selected { background: #eff6ff; }
+  .room-item .name { flex: 1; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .dot.mapped { background: var(--accent); }
+  .dot.unmapped { background: #d1d5db; }
+  .badge {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: var(--booked-bg);
+    color: var(--booked);
+    font-weight: 600;
+  }
+  .detail-panel {
+    padding: 14px;
+    border-top: 1px solid var(--border);
+    background: #fafafa;
+  }
+  .detail-panel h2 { margin: 0 0 4px; font-size: 16px; }
+  .detail-panel .wing-label { color: var(--muted); font-size: 13px; margin-bottom: 10px; }
+  .detail-panel button {
+    width: 100%;
+    padding: 10px;
+    border: none;
+    border-radius: 6px;
+    background: var(--accent);
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .detail-panel button.booked { background: var(--booked); }
+  .detail-panel .no-location {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 8px;
+  }
+  .empty-state { padding: 16px; color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Floorplan &mdash; Campus Map</h1>
+  <p>17 of 50 rooms have a confirmed location on the map (blue dot). The rest are listed but not yet clickable.</p>
+</header>
+<div class="layout">
+  <div class="map-panel">
+    <div class="map-wrap" id="mapWrap">
+      <img src="floorplan.png" id="floorplanImg" alt="Floor plan">
+    </div>
+  </div>
+  <div class="list-panel">
+    <div class="search">
+      <input type="text" id="searchBox" placeholder="Search rooms...">
+      <label class="available-toggle">
+        <input type="checkbox" id="availableOnly">
+        Show available rooms only
+      </label>
+    </div>
+    <div class="room-list" id="roomList"></div>
+    <div class="detail-panel" id="detailPanel" style="display:none"></div>
+  </div>
+</div>
+
+<script>
+const ROOMS = [{"name": "CARLOW COLLEGE ST.PATRICK'S Thend Level Edacation", "box": {"x0": 101, "y0": 31, "x1": 171, "y1": 82}, "wing": null}, {"name": "CAMPUS", "box": {"x0": 214, "y0": 31, "x1": 331, "y1": 56}, "wing": null}, {"name": "STUDENT RESOURCE BUILDING", "box": {"x0": 699, "y0": 108, "x1": 773, "y1": 147}, "wing": null}, {"name": "OFFICES S1-8", "box": {"x0": 931, "y0": 111, "x1": 994, "y1": 122}, "wing": "South Wing"}, {"name": "STUDENTS' UNION", "box": {"x0": 546, "y0": 123, "x1": 642, "y1": 136}, "wing": null}, {"name": "NORTH WING", "box": {"x0": 151, "y0": 146, "x1": 245, "y1": 160}, "wing": null}, {"name": "NURSE", "box": {"x0": 711, "y0": 162, "x1": 750, "y1": 173}, "wing": "Student Resource Building"}, {"name": "PRESIDENTIAL DINING ROOM", "box": {"x0": 164, "y0": 173, "x1": 242, "y1": 196}, "wing": "North Wing"}, {"name": "CAREERS OFFICE", "box": {"x0": 711, "y0": 175, "x1": 757, "y1": 199}, "wing": "Student Resource Building", "location_box": {"x0": 633, "y0": 162, "x1": 638, "y1": 170}}, {"name": "COUNSELLOR", "box": {"x0": 712, "y0": 200, "x1": 782, "y1": 211}, "wing": "Student Resource Building", "location_box": {"x0": 671, "y0": 159, "x1": 675, "y1": 168}}, {"name": "LIBRARY & MEZZANINE STUDY AREA", "box": {"x0": 315, "y0": 191, "x1": 401, "y1": 232}, "wing": null}, {"name": "CONSTANCE MARKIEVICZ BOARDROOM", "box": {"x0": 164, "y0": 199, "x1": 236, "y1": 232}, "wing": "North Wing"}, {"name": "CHANGING ROOMS & SHOWERS", "box": {"x0": 711, "y0": 214, "x1": 770, "y1": 247}, "wing": "Student Resource Building", "location_box": {"x0": 551, "y0": 202, "x1": 557, "y1": 211}, "location_box_alt": [{"x0": 593, "y0": 204, "x1": 599, "y1": 213}, {"x0": 542, "y0": 159, "x1": 556, "y1": 180}]}, {"name": "OFFICE OF THE PRESIDENT", "box": {"x0": 165, "y0": 236, "x1": 244, "y1": 258}, "wing": "North Wing", "location_box": {"x0": 80, "y0": 369, "x1": 86, "y1": 381}}, {"name": "SMOKING", "box": {"x0": 524, "y0": 238, "x1": 554, "y1": 245}, "wing": null}, {"name": "FITZGERALD HALL", "box": {"x0": 162, "y0": 269, "x1": 254, "y1": 283}, "wing": "North Wing"}, {"name": "WILLIAMS HALL", "box": {"x0": 163, "y0": 287, "x1": 216, "y1": 311}, "wing": "North Wing", "location_box": {"x0": 108, "y0": 165, "x1": 114, "y1": 177}}, {"name": "OMEARA GALLIRY", "box": {"x0": 536, "y0": 315, "x1": 596, "y1": 322}, "wing": "Middle House"}, {"name": "OFFICES S9-20", "box": {"x0": 932, "y0": 330, "x1": 1002, "y1": 341}, "wing": "South Wing"}, {"name": "CARLOVIAN DINING HALL", "box": {"x0": 344, "y0": 350, "x1": 411, "y1": 372}, "wing": "Middle House"}, {"name": "COBDEN HALL", "box": {"x0": 196, "y0": 459, "x1": 268, "y1": 471}, "wing": "Middle House"}, {"name": "MIDDLE HOUSE", "box": {"x0": 483, "y0": 494, "x1": 563, "y1": 507}, "wing": "Middle House"}, {"name": "SOUTH WING", "box": {"x0": 626, "y0": 495, "x1": 699, "y1": 511}, "wing": "South Wing"}, {"name": "OFFICES S25-S28", "box": {"x0": 932, "y0": 497, "x1": 1013, "y1": 507}, "wing": "South Wing"}, {"name": "MAN ENTRANCE", "box": {"x0": 422, "y0": 516, "x1": 477, "y1": 523}, "wing": null}, {"name": "ACADEMIC ADMINISTRATION", "box": {"x0": 859, "y0": 569, "x1": 1005, "y1": 581}, "wing": "South Wing"}, {"name": "JAMES DOYLE HALL", "box": {"x0": 74, "y0": 570, "x1": 176, "y1": 583}, "wing": "Middle House"}, {"name": "IT ROOM", "box": {"x0": 588, "y0": 571, "x1": 637, "y1": 582}, "wing": "Middle House"}, {"name": "HEAD OF STUDENT SERVICES", "box": {"x0": 587, "y0": 584, "x1": 683, "y1": 607}, "wing": "Middle House"}, {"name": "JAMES FINTAN LALOR HALL", "box": {"x0": 859, "y0": 584, "x1": 994, "y1": 594}, "wing": "South Wing"}, {"name": "THERRY HALL", "box": {"x0": 76, "y0": 585, "x1": 146, "y1": 596}, "wing": "Middle House", "location_box": {"x0": 371, "y0": 454, "x1": 378, "y1": 466}}, {"name": "KEEFFE LIBRARY", "box": {"x0": 292, "y0": 587, "x1": 338, "y1": 611}, "wing": "Middle House"}, {"name": "CHAPLAINCY", "box": {"x0": 860, "y0": 597, "x1": 926, "y1": 608}, "wing": "South Wing", "location_box": {"x0": 808, "y0": 597, "x1": 815, "y1": 610}}, {"name": "ADMISSIONS OFFICE", "box": {"x0": 76, "y0": 599, "x1": 179, "y1": 609}, "wing": "Middle House", "location_box": {"x0": 417, "y0": 461, "x1": 422, "y1": 473}, "location_box_alt": [{"x0": 409, "y0": 697, "x1": 413, "y1": 707}]}, {"name": "ACADEMIC RESOURCE OFFICE", "box": {"x0": 587, "y0": 610, "x1": 680, "y1": 634}, "wing": "Middle House"}, {"name": "PRACTICE PLACEMENT OFFICE", "box": {"x0": 858, "y0": 610, "x1": 1009, "y1": 623}, "wing": "South Wing", "location_box": {"x0": 798, "y0": 525, "x1": 807, "y1": 537}}, {"name": "JOHN O'LEARY ROOM", "box": {"x0": 858, "y0": 624, "x1": 971, "y1": 637}, "wing": "South Wing", "location_box": {"x0": 895, "y0": 450, "x1": 902, "y1": 462}, "location_box_alt": [{"x0": 848, "y0": 627, "x1": 852, "y1": 635}]}, {"name": "RECEPTION", "box": {"x0": 76, "y0": 612, "x1": 135, "y1": 623}, "wing": "Middle House", "location_box": {"x0": 471, "y0": 464, "x1": 479, "y1": 475}}, {"name": "IRIS MURDOCH HALL", "box": {"x0": 74, "y0": 624, "x1": 181, "y1": 637}, "wing": "Middle House", "location_box": {"x0": 520, "y0": 448, "x1": 527, "y1": 460}}, {"name": "WRITING DEVELOPMENT TUTOR", "box": {"x0": 588, "y0": 637, "x1": 664, "y1": 673}, "wing": "Middle House", "location_box": {"x0": 428, "y0": 698, "x1": 434, "y1": 707}}, {"name": "BARRY HALL", "box": {"x0": 76, "y0": 640, "x1": 140, "y1": 651}, "wing": "Middle House", "location_box": {"x0": 576, "y0": 454, "x1": 584, "y1": 466}}, {"name": "JOHN ENGLAND LECTURE HALL", "box": {"x0": 857, "y0": 652, "x1": 1014, "y1": 665}, "wing": "South Wing", "location_box": {"x0": 882, "y0": 346, "x1": 891, "y1": 359}}, {"name": "TEACHING PLACEMENT OFFICE", "box": {"x0": 75, "y0": 653, "x1": 230, "y1": 666}, "wing": "Middle House"}, {"name": "MORIARTY HALL", "box": {"x0": 75, "y0": 666, "x1": 162, "y1": 679}, "wing": "Middle House", "location_box": {"x0": 570, "y0": 363, "x1": 578, "y1": 375}}, {"name": "OFFICES", "box": {"x0": 280, "y0": 663, "x1": 323, "y1": 674}, "wing": "Middle House"}, {"name": "PAUL CULLEN ROOM", "box": {"x0": 859, "y0": 667, "x1": 963, "y1": 677}, "wing": "South Wing"}, {"name": "LEARNER INFORMATION & RETENTION OFFICER", "box": {"x0": 75, "y0": 682, "x1": 194, "y1": 705}, "wing": "Middle House"}, {"name": "IT SERVICES", "box": {"x0": 73, "y0": 705, "x1": 136, "y1": 716}, "wing": "Middle House", "location_box": {"x0": 531, "y0": 265, "x1": 537, "y1": 275}}, {"name": "THOMAS WALL LECTURE HALL", "box": {"x0": 860, "y0": 694, "x1": 1010, "y1": 704}, "wing": "South Wing"}, {"name": "OFFICES M1-16", "box": {"x0": 572, "y0": 703, "x1": 643, "y1": 713}, "wing": "Middle House"}];
+const IMAGE_SIZE = {"width": 1047, "height": 740};
+
+const roomListEl = document.getElementById('roomList');
+const mapWrap = document.getElementById('mapWrap');
+const detailPanel = document.getElementById('detailPanel');
+const searchBox = document.getElementById('searchBox');
+const availableOnlyBox = document.getElementById('availableOnly');
+
+let selectedId = null;
+
+function bookingKey(room) { return 'booking:' + room.name; }
+function isBooked(room) { return localStorage.getItem(bookingKey(room)) === '1'; }
+function setBooked(room, value) {
+  if (value) localStorage.setItem(bookingKey(room), '1');
+  else localStorage.removeItem(bookingKey(room));
+}
+
+function pctBox(box) {
+  return {
+    left: (box.x0 / IMAGE_SIZE.width * 100) + '%',
+    top: (box.y0 / IMAGE_SIZE.height * 100) + '%',
+    width: ((box.x1 - box.x0) / IMAGE_SIZE.width * 100) + '%',
+    height: ((box.y1 - box.y0) / IMAGE_SIZE.height * 100) + '%',
+  };
+}
+
+function renderHotspots() {
+  mapWrap.querySelectorAll('.hotspot').forEach(el => el.remove());
+  ROOMS.forEach((room, i) => {
+    if (!room.location_box) return;
+    if (availableOnlyBox.checked && isBooked(room)) return;
+    const el = document.createElement('div');
+    el.className = 'hotspot' + (i === selectedId ? ' selected' : '') + (isBooked(room) ? ' booked' : '');
+    const p = pctBox(room.location_box);
+    Object.assign(el.style, p);
+    el.title = room.name;
+    el.addEventListener('click', () => selectRoom(i));
+    mapWrap.appendChild(el);
+  });
+}
+
+function renderList(filterText) {
+  const filtered = ROOMS
+    .map((room, i) => ({ room, i }))
+    .filter(({ room }) => !filterText || room.name.toLowerCase().includes(filterText.toLowerCase()))
+    .filter(({ room }) => !availableOnlyBox.checked || !isBooked(room));
+
+  roomListEl.innerHTML = '';
+  if (filtered.length === 0) {
+    roomListEl.innerHTML = availableOnlyBox.checked
+      ? '<div class="empty-state">No available rooms match your search.</div>'
+      : '<div class="empty-state">No rooms match your search.</div>';
+    return;
+  }
+
+  const byWing = {};
+  filtered.forEach(({ room, i }) => {
+    const wing = room.wing || 'Other / Unassigned';
+    (byWing[wing] = byWing[wing] || []).push(i);
+  });
+
+  Object.keys(byWing).sort((a, b) => {
+    if (a === 'Other / Unassigned') return 1;
+    if (b === 'Other / Unassigned') return -1;
+    return a.localeCompare(b);
+  }).forEach(wing => {
+    const groupEl = document.createElement('div');
+    groupEl.className = 'wing-group';
+    groupEl.innerHTML = `<h3>${wing} (${byWing[wing].length})</h3>`;
+    byWing[wing].forEach(i => {
+      const room = ROOMS[i];
+      const item = document.createElement('div');
+      item.className = 'room-item' + (i === selectedId ? ' selected' : '');
+      item.innerHTML = `
+        <span class="dot ${room.location_box ? 'mapped' : 'unmapped'}"></span>
+        <span class="name">${room.name}</span>
+        ${isBooked(room) ? '<span class="badge">Booked</span>' : ''}
+      `;
+      item.addEventListener('click', () => selectRoom(i));
+      groupEl.appendChild(item);
+    });
+    roomListEl.appendChild(groupEl);
+  });
+}
+
+function renderDetail() {
+  if (selectedId === null) { detailPanel.style.display = 'none'; return; }
+  const room = ROOMS[selectedId];
+  const booked = isBooked(room);
+  detailPanel.style.display = 'block';
+  detailPanel.innerHTML = `
+    <h2>${room.name}</h2>
+    <div class="wing-label">${room.wing || 'Not part of a numbered wing'}</div>
+    <button id="bookBtn" class="${booked ? 'booked' : ''}">${booked ? 'Booked - Click to Cancel' : 'Book This Room'}</button>
+    ${!room.location_box ? '<div class="no-location">Location on the map not yet confirmed for this room.</div>' : ''}
+  `;
+  document.getElementById('bookBtn').addEventListener('click', () => {
+    setBooked(room, !booked);
+    renderDetail();
+    renderList(searchBox.value);
+    renderHotspots();
+  });
+}
+
+function selectRoom(i) {
+  selectedId = i;
+  renderList(searchBox.value);
+  renderHotspots();
+  renderDetail();
+}
+
+searchBox.addEventListener('input', () => renderList(searchBox.value));
+availableOnlyBox.addEventListener('change', () => {
+  if (selectedId !== null && availableOnlyBox.checked && isBooked(ROOMS[selectedId])) {
+    selectedId = null;
+    renderDetail();
+  }
+  renderList(searchBox.value);
+  renderHotspots();
+});
+
+renderList('');
+renderHotspots();
+</script>
+</body>
+</html>
