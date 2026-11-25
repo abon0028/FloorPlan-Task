@@ -264,6 +264,26 @@ TEMPLATE = """<!DOCTYPE html>
   .detail-row { margin-bottom: 10px; font-size: 14px; }
   .detail-row .label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; display: block; margin-bottom: 1px; }
   .form-error { color: var(--unavailable); font-size: 12px; margin-top: 8px; display: none; }
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    max-width: 320px;
+    background: #16a34a;
+    color: white;
+    padding: 14px 18px;
+    border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+    font-size: 14px;
+    line-height: 1.5;
+    z-index: 30;
+    opacity: 0;
+    transform: translateY(12px);
+    pointer-events: none;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
+  .toast strong { display: block; margin-bottom: 4px; font-size: 15px; }
   .map-popover {
     position: absolute;
     display: none;
@@ -341,6 +361,7 @@ TEMPLATE = """<!DOCTYPE html>
 <div class="modal-overlay" id="bookingModal">
   <div class="modal-card" id="modalContent"></div>
 </div>
+<div class="toast" id="toast"></div>
 
 <script>
 const ROOMS = __ROOMS_JSON__;
@@ -384,6 +405,15 @@ const popoverWing = document.getElementById('popoverWing');
 const popoverSlots = document.getElementById('popoverSlots');
 const bookingModal = document.getElementById('bookingModal');
 const modalContent = document.getElementById('modalContent');
+const toast = document.getElementById('toast');
+let toastTimer = null;
+
+function showToast(room, date, slot) {
+  toast.innerHTML = `<strong>&#10003; Booking confirmed</strong>${room.name}<br>${formatDisplayDate(date)} &middot; ${slot}`;
+  toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 6000);
+}
 
 let selectedId = null;
 
@@ -505,6 +535,7 @@ function renderBookingForm(room, date, slot) {
     saveBooking(room, date, slot, savedDetails);
     refreshAfterBookingChange();
     renderBookingDetails(room, date, slot, savedDetails, true);
+    showToast(room, date, slot);
   });
 }
 
