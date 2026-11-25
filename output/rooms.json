@@ -16,26 +16,6 @@
   ],
   "rooms": [
     {
-      "name": "CARLOW COLLEGE ST.PATRICK'S Thend Level Edacation",
-      "box": {
-        "x0": 101,
-        "y0": 31,
-        "x1": 171,
-        "y1": 82
-      },
-      "wing": null
-    },
-    {
-      "name": "CAMPUS",
-      "box": {
-        "x0": 214,
-        "y0": 31,
-        "x1": 331,
-        "y1": 56
-      },
-      "wing": null
-    },
-    {
       "name": "STUDENT RESOURCE BUILDING",
       "box": {
         "x0": 699,
@@ -63,7 +43,13 @@
         "x1": 642,
         "y1": 136
       },
-      "wing": null
+      "wing": null,
+      "location_box": {
+        "x0": 546,
+        "y0": 123,
+        "x1": 642,
+        "y1": 136
+      }
     },
     {
       "name": "NORTH WING",
@@ -93,7 +79,13 @@
         "x1": 242,
         "y1": 196
       },
-      "wing": "North Wing"
+      "wing": "North Wing",
+      "location_box": {
+        "x0": 246,
+        "y0": 379,
+        "x1": 250,
+        "y1": 391
+      }
     },
     {
       "name": "CAREERS OFFICE",
@@ -135,7 +127,13 @@
         "x1": 401,
         "y1": 232
       },
-      "wing": null
+      "wing": null,
+      "location_box": {
+        "x0": 315,
+        "y0": 191,
+        "x1": 401,
+        "y1": 232
+      }
     },
     {
       "name": "CONSTANCE MARKIEVICZ BOARDROOM",
@@ -145,7 +143,13 @@
         "x1": 236,
         "y1": 232
       },
-      "wing": "North Wing"
+      "wing": "North Wing",
+      "location_box": {
+        "x0": 109,
+        "y0": 454,
+        "x1": 115,
+        "y1": 466
+      }
     },
     {
       "name": "CHANGING ROOMS & SHOWERS",
@@ -211,7 +215,13 @@
         "x1": 254,
         "y1": 283
       },
-      "wing": "North Wing"
+      "wing": "North Wing",
+      "location_box": {
+        "x0": 81,
+        "y0": 249,
+        "x1": 89,
+        "y1": 261
+      }
     },
     {
       "name": "WILLIAMS HALL",
@@ -237,7 +247,13 @@
         "x1": 596,
         "y1": 322
       },
-      "wing": "Middle House"
+      "wing": "Middle House",
+      "location_box": {
+        "x0": 536,
+        "y0": 315,
+        "x1": 596,
+        "y1": 322
+      }
     },
     {
       "name": "OFFICES S9-20",
@@ -257,7 +273,13 @@
         "x1": 411,
         "y1": 372
       },
-      "wing": "Middle House"
+      "wing": "Middle House",
+      "location_box": {
+        "x0": 344,
+        "y0": 350,
+        "x1": 411,
+        "y1": 372
+      }
     },
     {
       "name": "COBDEN HALL",
@@ -267,7 +289,13 @@
         "x1": 268,
         "y1": 471
       },
-      "wing": "Middle House"
+      "wing": "Middle House",
+      "location_box": {
+        "x0": 196,
+        "y0": 459,
+        "x1": 268,
+        "y1": 471
+      }
     },
     {
       "name": "MIDDLE HOUSE",
@@ -317,7 +345,13 @@
         "x1": 1005,
         "y1": 581
       },
-      "wing": "South Wing"
+      "wing": "South Wing",
+      "location_box": {
+        "x0": 631,
+        "y0": 320,
+        "x1": 635,
+        "y1": 332
+      }
     },
     {
       "name": "JAMES DOYLE HALL",
@@ -347,7 +381,13 @@
         "x1": 683,
         "y1": 607
       },
-      "wing": "Middle House"
+      "wing": "Middle House",
+      "location_box": {
+        "x0": 383,
+        "y0": 699,
+        "x1": 388,
+        "y1": 708
+      }
     },
     {
       "name": "JAMES FINTAN LALOR HALL",
@@ -357,7 +397,13 @@
         "x1": 994,
         "y1": 594
       },
-      "wing": "South Wing"
+      "wing": "South Wing",
+      "location_box": {
+        "x0": 763,
+        "y0": 596,
+        "x1": 771,
+        "y1": 608
+      }
     },
     {
       "name": "THERRY HALL",
@@ -383,7 +429,13 @@
         "x1": 338,
         "y1": 611
       },
-      "wing": "Middle House"
+      "wing": "Middle House",
+      "location_box": {
+        "x0": 292,
+        "y0": 587,
+        "x1": 338,
+        "y1": 611
+      }
     },
     {
       "name": "CHAPLAINCY",
@@ -599,7 +651,13 @@
         "x1": 963,
         "y1": 677
       },
-      "wing": "South Wing"
+      "wing": "South Wing",
+      "location_box": {
+        "x0": 915,
+        "y0": 234,
+        "x1": 923,
+        "y1": 246
+      }
     },
     {
       "name": "LEARNER INFORMATION & RETENTION OFFICER",
@@ -609,7 +667,13 @@
         "x1": 194,
         "y1": 705
       },
-      "wing": "Middle House"
+      "wing": "Middle House",
+      "location_box": {
+        "x0": 528,
+        "y0": 282,
+        "x1": 535,
+        "y1": 291
+      }
     },
     {
       "name": "IT SERVICES",
@@ -635,7 +699,13 @@
         "x1": 1010,
         "y1": 704
       },
-      "wing": "South Wing"
+      "wing": "South Wing",
+      "location_box": {
+        "x0": 883,
+        "y0": 130,
+        "x1": 892,
+        "y1": 143
+      }
     },
     {
       "name": "OFFICES M1-16",

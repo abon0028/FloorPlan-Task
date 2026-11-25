@@ -49,9 +49,11 @@ WRAP_MAX_X_SHIFT = 15
 
 # How far to the left of a line to look for a bullet number, and how
 # confident a reading of it has to be to trust it:
-BULLET_LEFT_MARGIN = 45
+# Several margins to try per crop, in preference order -- see the "brittle
+# at exact pixel boundaries" note in read_bullet_numbers().
+BULLET_LEFT_MARGINS = [25, 22, 30, 20, 18, 35]
 BULLET_PADDING = 3
-BULLET_UPSCALE = 8
+BULLET_UPSCALE = 12
 BULLET_CONFIDENCE = 0.6
 BULLET_RE = re.compile(r"^\d{1,3}[.:]?$")
 
@@ -149,23 +151,8 @@ def read_bullet_numbers(entries_needing_check, image_path=INPUT_IMAGE, ocr=None)
     os.makedirs(CROP_DIR, exist_ok=True)
     img = Image.open(image_path).convert("RGB")
 
-    crop_paths = []
-    for i, e in enumerate(entries_needing_check):
-        x0 = max(0, int(e["x0"]) - BULLET_LEFT_MARGIN)
-        x1 = int(e["x0"]) + 2  # a little past the text start, in case the bullet sits close to it
-        y0 = max(0, int(e["y0"]) - BULLET_PADDING)
-        y1 = int(e["y1"]) + BULLET_PADDING
-        crop = img.crop((x0, y0, x1, y1))
-        crop = crop.resize((crop.width * BULLET_UPSCALE, crop.height * BULLET_UPSCALE), Image.LANCZOS)
-        # Some panels print the bullet in a low-contrast colour close to the
-        # panel's own background tint; boosting contrast makes it readable.
-        crop = ImageOps.autocontrast(crop, cutoff=1)
-        path = os.path.join(CROP_DIR, f"crop_{i}.png")
-        crop.save(path)
-        crop_paths.append(path)
-
     if ocr is None:
-        print(f"Loading PaddleOCR again to read {len(crop_paths)} cropped bullet-number patches...")
+        print(f"Loading PaddleOCR again to read {len(entries_needing_check)} cropped bullet-number patches...")
         from paddleocr import PaddleOCR
 
         ocr = PaddleOCR(
@@ -176,16 +163,40 @@ def read_bullet_numbers(entries_needing_check, image_path=INPUT_IMAGE, ocr=None)
             use_textline_orientation=False,
         )
     else:
-        print(f"Reusing the loaded PaddleOCR model to read {len(crop_paths)} cropped bullet-number patches...")
+        print(f"Reusing the loaded PaddleOCR model to read {len(entries_needing_check)} cropped bullet-number patches...")
 
+    # The text detector turns out to be brittle at exact pixel boundaries --
+    # the *same* digit at the *same* logical position can go from reading
+    # perfectly to detecting nothing at all with a 1-3px change in crop
+    # width, and which exact margin is "unlucky" differs per room. Rather
+    # than trust one fixed margin, try a few and keep the first confident,
+    # plausible-looking (digit) reading.
     readings = {}
-    for e, path in zip(entries_needing_check, crop_paths):
-        for res in ocr.predict(path):
-            texts, scores = res["rec_texts"], res["rec_scores"]
-            if texts:
-                # longest reading on the patch (bullets are short, ignore stray noise)
-                best = max(zip(texts, scores), key=lambda t: t[1])
-                readings[id(e)] = best
+    for e in entries_needing_check:
+        for margin in BULLET_LEFT_MARGINS:
+            x0 = max(0, int(e["x0"]) - margin)
+            x1 = int(e["x0"]) + 2  # a little past the text start, in case the bullet sits close to it
+            y0 = max(0, int(e["y0"]) - BULLET_PADDING)
+            y1 = int(e["y1"]) + BULLET_PADDING
+            crop = img.crop((x0, y0, x1, y1))
+            crop = crop.resize((crop.width * BULLET_UPSCALE, crop.height * BULLET_UPSCALE), Image.LANCZOS)
+            # Some panels print the bullet in a low-contrast colour close to
+            # the panel's own background tint; boosting contrast helps.
+            crop = ImageOps.autocontrast(crop, cutoff=1)
+            path = os.path.join(CROP_DIR, f"crop_{id(e)}_{margin}.png")
+            crop.save(path)
+
+            found = None
+            for res in ocr.predict(path):
+                candidates = [
+                    (t, s) for t, s in zip(res["rec_texts"], res["rec_scores"])
+                    if BULLET_RE.match(t) and s >= BULLET_CONFIDENCE
+                ]
+                if candidates:
+                    found = max(candidates, key=lambda t: t[1])
+            if found:
+                readings[id(e)] = found
+                break
     return readings
 
 
