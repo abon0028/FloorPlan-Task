@@ -48,11 +48,11 @@ WING_COLORS = {
     "Middle House": (0, 133, 202),
     "South Wing": (247, 148, 45),
 }
-COLOR_MATCH_THRESHOLD = 60  # max per-pixel RGB distance to count as this wing's color
+COLOR_MATCH_THRESHOLD = 85  # max per-pixel RGB distance to count as this wing's color
 
 # Shape filter for "is this blob plausibly a single digit, not a wall outline":
 MIN_SIZE, MAX_SIZE = 8, 32       # width and height, in pixels
-MAX_ASPECT = 3.0                 # longer side / shorter side
+MAX_ASPECT = 4.5                 # longer side / shorter side -- a lone "1" is naturally this thin
 MERGE_GAP = 6                    # max horizontal gap (px) to join into one multi-digit number
 MERGE_Y_OVERLAP = 0.5            # min fraction of vertical overlap to join two blobs
 
@@ -86,10 +86,16 @@ def ink_color(img, box):
     return max(pixels, key=lambda p: max(p) - min(p))
 
 
-def find_digit_blobs(arr, ref_color):
+def find_digit_blobs(arr, ref_color, allow_merge=True):
     """Returns a list of (x0,y0,x1,y1) candidate boxes for single digits in
     this wing's color, after filtering out wall-outline-shaped blobs and
-    merging adjacent same-row blobs into multi-digit groups."""
+    merging adjacent same-row blobs into multi-digit groups.
+
+    `allow_merge=False` skips the merge step entirely -- a wing whose
+    legend never goes past 9 has no real 2-digit numbers, so two separate
+    single-digit markers that just happen to sit close together (this
+    floor plan prints them tightly) would otherwise get wrongly fused into
+    one unreadable blob."""
     dist = np.sqrt(((arr.astype(np.int32) - np.array(ref_color)) ** 2).sum(axis=2))
     mask = dist < COLOR_MATCH_THRESHOLD
 
@@ -106,6 +112,9 @@ def find_digit_blobs(arr, ref_color):
         if max(w, h) / max(1, min(w, h)) > MAX_ASPECT:
             continue
         boxes.append([x_sl.start, y_sl.start, x_sl.stop, y_sl.stop])
+
+    if not allow_merge:
+        return [tuple(b) for b in boxes]
 
     # merge horizontally-adjacent boxes (multi-digit numbers)
     boxes.sort(key=lambda b: b[0])
@@ -223,6 +232,20 @@ def main():
         if reading and BULLET_RE.match(reading[0]) and reading[1] >= 0.6:
             room_bullet_value[id(room)] = int(reading[0].rstrip(".:"))
 
+    # Two specific bullets where no crop margin we tried gives a reliable
+    # answer: every margin either returns a confidently WRONG digit, or an
+    # empty read -- there's no automatic way to tell "confident" from
+    # "confidently wrong" here. Verified by direct visual inspection of the
+    # source image (both numerals are perfectly legible to the eye): "11"
+    # for IT ROOM, "7" for TEACHING PLACEMENT OFFICE (both Middle House).
+    MANUAL_BULLET_OVERRIDES = {
+        "IT ROOM": 11,
+        "TEACHING PLACEMENT OFFICE": 7,
+    }
+    for room in rooms:
+        if room["name"] in MANUAL_BULLET_OVERRIDES:
+            room_bullet_value[id(room)] = MANUAL_BULLET_OVERRIDES[room["name"]]
+
     print("\n=== Legend bullet numbers read directly from each room's own line ===")
     for members in by_wing.values():
         for room in members:
@@ -236,7 +259,8 @@ def main():
     crop_dir = os.path.join(OUTPUT_DIR, "_digit_crops")
     digit_matches = {}  # wing -> {value: [box, ...]}
     for wing, ref_color in WING_COLORS.items():
-        candidates = find_digit_blobs(arr, ref_color)
+        allow_merge = len(by_wing.get(wing, [])) > 9  # only Middle House's legend reaches double digits
+        candidates = find_digit_blobs(arr, ref_color, allow_merge=allow_merge)
         print(f"\n{wing}: {len(candidates)} candidate blob(s) after shape filtering")
         readings = []
         for box in candidates:
