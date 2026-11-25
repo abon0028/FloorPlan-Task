@@ -11,10 +11,11 @@
     --accent: #2563eb;
     --accent-bg: rgba(37, 99, 235, 0.18);
     --available: #16a34a;
-    --available-bg: rgba(22, 163, 74, 0.18);
-    --available-bg-hover: rgba(22, 163, 74, 0.30);
+    --available-bg: #d7f0db;
+    --available-bg-hover: #bfe6c7;
     --unavailable: #dc2626;
-    --unavailable-bg: rgba(220, 38, 38, 0.18);
+    --unavailable-bg: #f3c6c6;
+    --unavailable-bg-hover: #edb0b0;
   }
   * { box-sizing: border-box; }
   body {
@@ -30,16 +31,8 @@
   }
   header h1 { margin: 0; font-size: 20px; }
   header p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
-  .layout {
-    display: flex;
-    gap: 20px;
-    padding: 20px;
-    align-items: flex-start;
-    flex-wrap: wrap;
-  }
   .map-panel {
-    flex: 1 1 560px;
-    min-width: 320px;
+    margin: 20px;
     background: white;
     border: 1px solid var(--border);
     border-radius: 10px;
@@ -47,155 +40,182 @@
   }
   .map-wrap {
     position: relative;
-    width: 100%;
+    max-width: 900px;
+    margin: 0 auto;
     line-height: 0;
   }
   .map-wrap img { width: 100%; height: auto; display: block; border-radius: 6px; }
   .hotspot {
     position: absolute;
     border: 2px solid var(--available);
-    background: var(--available-bg);
+    background: rgba(22, 163, 74, 0.18);
     border-radius: 3px;
     cursor: pointer;
     transition: background 0.15s;
   }
-  .hotspot:hover { background: var(--available-bg-hover); }
-  .hotspot.unavailable { border-color: var(--unavailable); background: var(--unavailable-bg); }
+  .hotspot:hover { background: rgba(22, 163, 74, 0.32); }
+  .hotspot.unavailable { border-color: var(--unavailable); background: rgba(220, 38, 38, 0.18); }
   .hotspot.selected { box-shadow: 0 0 0 3px rgba(26, 26, 46, 0.45); z-index: 2; }
-  .list-panel {
-    flex: 1 1 380px;
-    min-width: 300px;
+  .grid-panel {
+    margin: 0 20px 20px;
     background: white;
     border: 1px solid var(--border);
     border-radius: 10px;
-    display: flex;
-    flex-direction: column;
-    max-height: 80vh;
-  }
-  .list-panel .search {
     padding: 12px;
+  }
+  .controls {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+    padding-bottom: 12px;
+    margin-bottom: 10px;
     border-bottom: 1px solid var(--border);
   }
-  .list-panel input[type=text], .list-panel input[type=date] {
-    width: 100%;
+  .controls input[type=text] {
+    flex: 1 1 220px;
     padding: 8px 10px;
     border: 1px solid var(--border);
     border-radius: 6px;
     font-size: 14px;
   }
-  .date-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-top: 10px;
+  .controls input[type=date] {
+    padding: 7px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 14px;
   }
-  .date-row label { font-size: 13px; color: var(--muted); white-space: nowrap; }
-  .available-toggle {
+  .controls label.toggle {
     display: flex;
     align-items: center;
     gap: 6px;
-    margin-top: 10px;
     font-size: 13px;
     color: var(--muted);
     cursor: pointer;
     user-select: none;
+    white-space: nowrap;
   }
-  .available-toggle input { cursor: pointer; }
-  .room-list { overflow-y: auto; flex: 1; }
-  .wing-group h3 {
-    margin: 0;
-    padding: 8px 14px;
+  .grid-scroll { overflow-x: auto; }
+  table.schedule { border-collapse: collapse; width: 100%; min-width: 760px; }
+  table.schedule th, table.schedule td { border: 1px solid var(--border); }
+  table.schedule thead th {
+    position: sticky;
+    top: 0;
+    background: #f1f5f9;
+    padding: 8px 6px;
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 600;
+    white-space: nowrap;
+    z-index: 1;
+  }
+  table.schedule thead th.room-col { left: 0; z-index: 2; text-align: left; }
+  .wing-row td {
+    background: #f1f5f9;
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     color: var(--muted);
-    background: #f1f5f9;
+    padding: 6px 10px;
     position: sticky;
-    top: 0;
+    left: 0;
   }
-  .room-item {
-    padding: 9px 14px;
-    border-bottom: 1px solid #f1f5f9;
-    cursor: pointer;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 8px;
-    font-size: 14px;
-  }
-  .room-item:hover { background: #f8fafc; }
-  .room-item.selected { background: #eff6ff; }
-  .room-item .name { flex: 1; }
-  .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-  .dot.mapped { background: var(--accent); }
-  .dot.unmapped { background: #d1d5db; }
-  .pill {
-    font-size: 10px;
-    padding: 2px 6px;
-    border-radius: 999px;
-    font-weight: 600;
+  td.room-name {
+    position: sticky;
+    left: 0;
+    background: white;
+    padding: 8px 10px;
+    font-size: 13px;
     white-space: nowrap;
+    cursor: pointer;
   }
-  .pill.available { background: var(--available-bg); color: var(--available); }
-  .pill.unavailable { background: var(--unavailable-bg); color: var(--unavailable); }
-  .detail-panel {
-    padding: 14px;
-    border-top: 1px solid var(--border);
-    background: #fafafa;
+  tr.selected td.room-name { background: #eff6ff; }
+  td.room-name .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+  td.room-name .dot.mapped { background: var(--accent); }
+  td.room-name .dot.unmapped { background: #d1d5db; }
+  td.slot-cell {
+    padding: 0;
+    text-align: center;
+    cursor: pointer;
+    min-width: 72px;
+    height: 34px;
   }
-  .detail-panel h2 { margin: 0 0 4px; font-size: 16px; }
-  .detail-panel .wing-label { color: var(--muted); font-size: 13px; margin-bottom: 10px; }
-  .slot-grid {
+  td.slot-cell.available { background: var(--available-bg); }
+  td.slot-cell.available:hover { background: var(--available-bg-hover); }
+  td.slot-cell.unavailable { background: var(--unavailable-bg); }
+  td.slot-cell.unavailable:hover { background: var(--unavailable-bg-hover); }
+  .empty-state { padding: 16px; color: var(--muted); font-size: 13px; }
+  .map-popover {
+    position: absolute;
+    display: none;
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+    padding: 12px;
+    width: 230px;
+    z-index: 5;
+  }
+  .map-popover.open { display: block; }
+  .map-popover .close-btn {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    border: none;
+    background: none;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    color: var(--muted);
+  }
+  .map-popover h3 { margin: 0 0 2px; font-size: 14px; padding-right: 16px; }
+  .map-popover .wing-label { color: var(--muted); font-size: 12px; margin-bottom: 8px; }
+  .map-popover .slot-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 6px;
+    gap: 5px;
   }
-  .slot {
-    padding: 8px 6px;
+  .map-popover .slot {
+    padding: 6px 4px;
     border: none;
-    border-radius: 6px;
-    font-size: 12px;
+    border-radius: 5px;
+    font-size: 11px;
     font-weight: 600;
     cursor: pointer;
     text-align: center;
   }
-  .slot.available { background: var(--available-bg); color: var(--available); }
-  .slot.available:hover { background: var(--available-bg-hover); }
-  .slot.unavailable { background: var(--unavailable-bg); color: var(--unavailable); }
-  .slot-hint { font-size: 11px; color: var(--muted); margin: 8px 0; }
-  .detail-panel .no-location {
-    font-size: 12px;
-    color: var(--muted);
-    margin-top: 8px;
-  }
-  .empty-state { padding: 16px; color: var(--muted); font-size: 13px; }
+  .map-popover .slot.available { background: var(--available-bg); color: var(--available); }
+  .map-popover .slot.available:hover { background: var(--available-bg-hover); }
+  .map-popover .slot.unavailable { background: var(--unavailable-bg); color: var(--unavailable); }
 </style>
 </head>
 <body>
 <header>
   <h1>Floorplan &mdash; Campus Map</h1>
-  <p>17 of 50 rooms have a confirmed location on the map. The rest are listed but not yet clickable. Pick a date to see per-slot availability.</p>
+  <p>17 of 50 rooms have a confirmed location on the map -- click a box to book it right there. Green = available, red = booked, per time slot.</p>
 </header>
-<div class="layout">
-  <div class="map-panel">
-    <div class="map-wrap" id="mapWrap">
-      <img src="floorplan.png" id="floorplanImg" alt="Floor plan">
+<div class="map-panel">
+  <div class="map-wrap" id="mapWrap">
+    <img src="floorplan.png" id="floorplanImg" alt="Floor plan">
+    <div class="map-popover" id="mapPopover">
+      <button class="close-btn" id="popoverClose">&times;</button>
+      <h3 id="popoverTitle"></h3>
+      <div class="wing-label" id="popoverWing"></div>
+      <div class="slot-grid" id="popoverSlots"></div>
     </div>
   </div>
-  <div class="list-panel">
-    <div class="search">
-      <input type="text" id="searchBox" placeholder="Search rooms...">
-      <div class="date-row">
-        <label for="bookingDate">Date:</label>
-        <input type="date" id="bookingDate">
-      </div>
-      <label class="available-toggle">
-        <input type="checkbox" id="availableOnly">
-        Show available rooms only (for this date)
-      </label>
-    </div>
-    <div class="room-list" id="roomList"></div>
-    <div class="detail-panel" id="detailPanel" style="display:none"></div>
+</div>
+<div class="grid-panel">
+  <div class="controls">
+    <input type="text" id="searchBox" placeholder="Search rooms...">
+    <input type="date" id="bookingDate">
+    <label class="toggle">
+      <input type="checkbox" id="availableOnly">
+      Available rooms only
+    </label>
+  </div>
+  <div class="grid-scroll">
+    <table class="schedule" id="scheduleTable"></table>
   </div>
 </div>
 
@@ -207,12 +227,16 @@ const TIME_SLOTS = [
   '13:00-14:00', '14:00-15:00', '15:00-16:00', '16:00-17:00',
 ];
 
-const roomListEl = document.getElementById('roomList');
 const mapWrap = document.getElementById('mapWrap');
-const detailPanel = document.getElementById('detailPanel');
+const scheduleTable = document.getElementById('scheduleTable');
 const searchBox = document.getElementById('searchBox');
 const availableOnlyBox = document.getElementById('availableOnly');
 const dateInput = document.getElementById('bookingDate');
+const mapPopover = document.getElementById('mapPopover');
+const popoverClose = document.getElementById('popoverClose');
+const popoverTitle = document.getElementById('popoverTitle');
+const popoverWing = document.getElementById('popoverWing');
+const popoverSlots = document.getElementById('popoverSlots');
 
 let selectedId = null;
 
@@ -253,26 +277,77 @@ function renderHotspots() {
     const p = pctBox(room.location_box);
     Object.assign(el.style, p);
     el.title = room.name + (fullyBooked ? ' (fully booked on ' + date + ')' : ' (available on ' + date + ')');
-    el.addEventListener('click', () => selectRoom(i));
+    el.addEventListener('click', () => openMapPopover(i, el));
     mapWrap.appendChild(el);
   });
 }
 
-function renderList(filterText) {
+function renderPopoverSlots(room) {
+  const date = dateInput.value;
+  popoverSlots.innerHTML = '';
+  TIME_SLOTS.forEach(slot => {
+    const booked = isSlotBooked(room, date, slot);
+    const btn = document.createElement('button');
+    btn.className = 'slot ' + (booked ? 'unavailable' : 'available');
+    btn.textContent = slot + (booked ? ' X' : '');
+    btn.addEventListener('click', () => {
+      setSlotBooked(room, date, slot, !booked);
+      renderPopoverSlots(room);
+      renderGrid(searchBox.value);
+      renderHotspots();
+    });
+    popoverSlots.appendChild(btn);
+  });
+}
+
+function openMapPopover(i, hotspotEl) {
+  selectedId = i;
+  const room = ROOMS[i];
+  popoverTitle.textContent = room.name;
+  popoverWing.textContent = room.wing || 'Not part of a numbered wing';
+  renderPopoverSlots(room);
+
+  // position the popover next to the hotspot, clamped so it stays inside the map
+  const left = Math.min(hotspotEl.offsetLeft + hotspotEl.offsetWidth + 10, mapWrap.offsetWidth - 240);
+  const top = Math.min(hotspotEl.offsetTop, mapWrap.offsetHeight - 180);
+  mapPopover.style.left = Math.max(10, left) + 'px';
+  mapPopover.style.top = Math.max(10, top) + 'px';
+  mapPopover.classList.add('open');
+
+  renderGrid(searchBox.value);
+  renderHotspots();
+}
+
+function closeMapPopover() {
+  mapPopover.classList.remove('open');
+}
+popoverClose.addEventListener('click', closeMapPopover);
+
+function renderGrid(filterText) {
   const date = dateInput.value;
   const filtered = ROOMS
     .map((room, i) => ({ room, i }))
     .filter(({ room }) => !filterText || room.name.toLowerCase().includes(filterText.toLowerCase()))
     .filter(({ room }) => !availableOnlyBox.checked || !isFullyBooked(room, date));
 
-  roomListEl.innerHTML = '';
+  scheduleTable.innerHTML = '';
   if (filtered.length === 0) {
-    roomListEl.innerHTML = availableOnlyBox.checked
-      ? '<div class="empty-state">No available rooms match your search for this date.</div>'
-      : '<div class="empty-state">No rooms match your search.</div>';
+    scheduleTable.innerHTML = '';
+    document.getElementById('scheduleTable').insertAdjacentHTML('afterend',
+      '<div class="empty-state" id="emptyMsg">No rooms match your filters.</div>');
     return;
   }
+  const existingEmpty = document.getElementById('emptyMsg');
+  if (existingEmpty) existingEmpty.remove();
 
+  const thead = document.createElement('thead');
+  const headRow = document.createElement('tr');
+  headRow.innerHTML = '<th class="room-col">Room</th>' +
+    TIME_SLOTS.map(s => `<th>${s}</th>`).join('');
+  thead.appendChild(headRow);
+  scheduleTable.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
   const byWing = {};
   filtered.forEach(({ room, i }) => {
     const wing = room.wing || 'Other / Unassigned';
@@ -284,77 +359,67 @@ function renderList(filterText) {
     if (b === 'Other / Unassigned') return -1;
     return a.localeCompare(b);
   }).forEach(wing => {
-    const groupEl = document.createElement('div');
-    groupEl.className = 'wing-group';
-    groupEl.innerHTML = `<h3>${wing} (${byWing[wing].length})</h3>`;
+    const wingRow = document.createElement('tr');
+    wingRow.className = 'wing-row';
+    wingRow.innerHTML = `<td colspan="${TIME_SLOTS.length + 1}">${wing} (${byWing[wing].length})</td>`;
+    tbody.appendChild(wingRow);
+
     byWing[wing].forEach(i => {
       const room = ROOMS[i];
-      const fullyBooked = isFullyBooked(room, date);
-      const item = document.createElement('div');
-      item.className = 'room-item' + (i === selectedId ? ' selected' : '');
-      item.innerHTML = `
-        <span class="dot ${room.location_box ? 'mapped' : 'unmapped'}"></span>
-        <span class="name">${room.name}</span>
-        <span class="pill ${fullyBooked ? 'unavailable' : 'available'}">${fullyBooked ? 'Fully booked' : 'Available'}</span>
-      `;
-      item.addEventListener('click', () => selectRoom(i));
-      groupEl.appendChild(item);
-    });
-    roomListEl.appendChild(groupEl);
-  });
-}
+      const tr = document.createElement('tr');
+      if (i === selectedId) tr.className = 'selected';
+      tr.id = 'room-row-' + i;
 
-function renderDetail() {
-  if (selectedId === null) { detailPanel.style.display = 'none'; return; }
-  const room = ROOMS[selectedId];
-  const date = dateInput.value;
-  detailPanel.style.display = 'block';
-  detailPanel.innerHTML = `
-    <h2>${room.name}</h2>
-    <div class="wing-label">${room.wing || 'Not part of a numbered wing'}</div>
-    <div class="slot-hint">Time slots for ${date} &mdash; click green to book, red to cancel</div>
-    <div class="slot-grid" id="slotGrid"></div>
-    ${!room.location_box ? '<div class="no-location">Location on the map not yet confirmed for this room.</div>' : ''}
-  `;
-  const slotGrid = document.getElementById('slotGrid');
-  TIME_SLOTS.forEach(slot => {
-    const booked = isSlotBooked(room, date, slot);
-    const btn = document.createElement('button');
-    btn.className = 'slot ' + (booked ? 'unavailable' : 'available');
-    btn.textContent = slot + (booked ? ' - Booked' : '');
-    btn.addEventListener('click', () => {
-      setSlotBooked(room, date, slot, !booked);
-      renderDetail();
-      renderList(searchBox.value);
-      renderHotspots();
+      const nameTd = document.createElement('td');
+      nameTd.className = 'room-name';
+      nameTd.innerHTML = `<span class="dot ${room.location_box ? 'mapped' : 'unmapped'}"></span>${room.name}`;
+      nameTd.addEventListener('click', () => selectRoom(i));
+      tr.appendChild(nameTd);
+
+      TIME_SLOTS.forEach(slot => {
+        const booked = isSlotBooked(room, date, slot);
+        const td = document.createElement('td');
+        td.className = 'slot-cell ' + (booked ? 'unavailable' : 'available');
+        td.title = room.name + ' - ' + slot + (booked ? ' (booked, click to cancel)' : ' (available, click to book)');
+        td.addEventListener('click', () => {
+          setSlotBooked(room, date, slot, !booked);
+          renderGrid(searchBox.value);
+          renderHotspots();
+        });
+        tr.appendChild(td);
+      });
+
+      tbody.appendChild(tr);
     });
-    slotGrid.appendChild(btn);
   });
+  scheduleTable.appendChild(tbody);
 }
 
 function selectRoom(i) {
   selectedId = i;
-  renderList(searchBox.value);
+  renderGrid(searchBox.value);
   renderHotspots();
-  renderDetail();
+  const row = document.getElementById('room-row-' + i);
+  if (row) row.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
-searchBox.addEventListener('input', () => renderList(searchBox.value));
+searchBox.addEventListener('input', () => renderGrid(searchBox.value));
 availableOnlyBox.addEventListener('change', () => {
   if (selectedId !== null && availableOnlyBox.checked && isFullyBooked(ROOMS[selectedId], dateInput.value)) {
     selectedId = null;
-    renderDetail();
   }
-  renderList(searchBox.value);
+  renderGrid(searchBox.value);
   renderHotspots();
 });
 dateInput.addEventListener('change', () => {
-  renderList(searchBox.value);
+  renderGrid(searchBox.value);
   renderHotspots();
-  renderDetail();
+  if (selectedId !== null && mapPopover.classList.contains('open')) {
+    renderPopoverSlots(ROOMS[selectedId]);
+  }
 });
 
-renderList('');
+renderGrid('');
 renderHotspots();
 </script>
 </body>
