@@ -13,6 +13,9 @@
     --available: #16a34a;
     --available-bg: #d7f0db;
     --available-bg-hover: #bfe6c7;
+    --yours: #d97706;
+    --yours-bg: #fde8c7;
+    --yours-bg-hover: #fbd9a0;
     --unavailable: #dc2626;
     --unavailable-bg: #f3c6c6;
     --unavailable-bg-hover: #edb0b0;
@@ -31,6 +34,12 @@
   }
   header h1 { margin: 0; font-size: 20px; }
   header p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+  .legend { display: flex; gap: 16px; margin-top: 10px; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink); font-weight: 600; }
+  .legend .swatch { width: 16px; height: 16px; border-radius: 4px; display: inline-block; }
+  .legend .swatch.available { background: var(--available); }
+  .legend .swatch.yours { background: var(--yours); }
+  .legend .swatch.unavailable { background: var(--unavailable); }
   .map-panel {
     margin: 20px;
     background: white;
@@ -54,6 +63,7 @@
     transition: background 0.15s;
   }
   .hotspot:hover { background: rgba(22, 163, 74, 0.32); }
+  .hotspot.yours { border-color: var(--yours); background: rgba(217, 119, 6, 0.22); }
   .hotspot.unavailable { border-color: var(--unavailable); background: rgba(220, 38, 38, 0.18); }
   .hotspot.selected { box-shadow: 0 0 0 3px rgba(26, 26, 46, 0.45); z-index: 2; }
   .grid-panel {
@@ -152,9 +162,9 @@
   }
   td.slot-cell.available { background: var(--available-bg); }
   td.slot-cell.available:hover { background: var(--available-bg-hover); }
-  td.slot-cell.unavailable { background: var(--unavailable-bg); }
-  td.slot-cell.unavailable:hover { background: var(--unavailable-bg-hover); }
-  td.slot-cell.closed { background: #f1f5f9; cursor: not-allowed; }
+  td.slot-cell.yours { background: var(--yours-bg); }
+  td.slot-cell.yours:hover { background: var(--yours-bg-hover); }
+  td.slot-cell.closed { background: var(--unavailable-bg); cursor: not-allowed; }
   .empty-state { padding: 16px; color: var(--muted); font-size: 13px; }
   .map-popover {
     position: absolute;
@@ -197,7 +207,8 @@
   }
   .map-popover .slot.available { background: var(--available-bg); color: var(--available); }
   .map-popover .slot.available:hover { background: var(--available-bg-hover); }
-  .map-popover .slot.unavailable { background: var(--unavailable-bg); color: var(--unavailable); }
+  .map-popover .slot.yours { background: var(--yours-bg); color: var(--yours); }
+  .map-popover .slot.yours:hover { background: var(--yours-bg-hover); }
   .modal-overlay {
     position: fixed;
     inset: 0;
@@ -262,7 +273,12 @@
 <body>
 <header>
   <h1>Floorplan &mdash; Campus Map</h1>
-  <p>32 of 48 rooms have a confirmed location on the map -- click a box to book it right there. Green = available, red = booked, per time slot.</p>
+  <p>32 of 48 rooms have a confirmed location on the map -- click a box to book it right there, per time slot.</p>
+  <div class="legend">
+    <span class="legend-item"><span class="swatch available"></span>Available</span>
+    <span class="legend-item"><span class="swatch yours"></span>Your Booking</span>
+    <span class="legend-item"><span class="swatch unavailable"></span>Unavailable</span>
+  </div>
 </header>
 <div class="map-panel">
   <div class="map-wrap" id="mapWrap">
@@ -519,9 +535,15 @@ function cancelBooking(room, date, slot) {
   localStorage.removeItem(slotKey(room, date, slot));
 }
 function isSlotBooked(room, date, slot) { return getBooking(room, date, slot) !== null; }
-function isFullyBooked(room, date) {
-  if (!isBookableDate(date)) return true; // closed day -- nothing is available
-  return TIME_SLOTS.every(slot => isSlotBooked(room, date, slot));
+
+// Three-way status for a whole room on a given date, matching the legend:
+// 'closed' (red, the date itself isn't bookable), 'yours' (amber, every
+// slot is already booked -- on this single-browser prototype that always
+// means "booked from here"), or 'available' (green, at least one open slot).
+function roomDateStatus(room, date) {
+  if (!isBookableDate(date)) return 'closed';
+  if (TIME_SLOTS.every(slot => isSlotBooked(room, date, slot))) return 'yours';
+  return 'available';
 }
 
 function pctBox(box) {
@@ -538,13 +560,16 @@ function renderHotspots() {
   mapWrap.querySelectorAll('.hotspot').forEach(el => el.remove());
   ROOMS.forEach((room, i) => {
     if (!room.location_box) return;
-    const fullyBooked = isFullyBooked(room, date);
-    if (availableOnlyBox.checked && fullyBooked) return;
+    const status = roomDateStatus(room, date);
+    if (availableOnlyBox.checked && status !== 'available') return;
     const el = document.createElement('div');
-    el.className = 'hotspot' + (fullyBooked ? ' unavailable' : '') + (i === selectedId ? ' selected' : '');
+    el.className = 'hotspot' + (status !== 'available' ? ' ' + status : '') + (i === selectedId ? ' selected' : '');
     const p = pctBox(room.location_box);
     Object.assign(el.style, p);
-    el.title = room.name + (fullyBooked ? ' (fully booked on ' + date + ')' : ' (available on ' + date + ')');
+    const statusText = status === 'closed' ? 'not bookable on ' + date
+      : status === 'yours' ? 'fully booked on ' + date
+      : 'available on ' + date;
+    el.title = room.name + ' (' + statusText + ')';
     el.addEventListener('click', () => openMapPopover(i, el));
     mapWrap.appendChild(el);
   });
@@ -561,7 +586,7 @@ function renderPopoverSlots(room) {
   TIME_SLOTS.forEach(slot => {
     const booked = isSlotBooked(room, date, slot);
     const btn = document.createElement('button');
-    btn.className = 'slot ' + (booked ? 'unavailable' : 'available');
+    btn.className = 'slot ' + (booked ? 'yours' : 'available');
     btn.textContent = slot + (booked ? ' X' : '');
     btn.addEventListener('click', () => openSlotModal(room, date, slot));
     popoverSlots.appendChild(btn);
@@ -605,7 +630,7 @@ function renderGrid(filterText) {
   const filtered = ROOMS
     .map((room, i) => ({ room, i }))
     .filter(({ room }) => !filterText || room.name.toLowerCase().includes(filterText.toLowerCase()))
-    .filter(({ room }) => !availableOnlyBox.checked || !isFullyBooked(room, date));
+    .filter(({ room }) => !availableOnlyBox.checked || roomDateStatus(room, date) === 'available');
 
   scheduleTable.innerHTML = '';
   if (filtered.length === 0) {
@@ -660,8 +685,8 @@ function renderGrid(filterText) {
           td.title = room.name + ' - ' + slot + ' (' + closedReason + ', not bookable)';
         } else {
           const booked = isSlotBooked(room, date, slot);
-          td.className = 'slot-cell ' + (booked ? 'unavailable' : 'available');
-          td.title = room.name + ' - ' + slot + (booked ? ' (booked - click to view/cancel)' : ' (available - click to book)');
+          td.className = 'slot-cell ' + (booked ? 'yours' : 'available');
+          td.title = room.name + ' - ' + slot + (booked ? ' (your booking - click to view/cancel)' : ' (available - click to book)');
           td.addEventListener('click', () => openSlotModal(room, date, slot));
         }
         tr.appendChild(td);
@@ -683,7 +708,7 @@ function selectRoom(i) {
 
 searchBox.addEventListener('input', () => renderGrid(searchBox.value));
 availableOnlyBox.addEventListener('change', () => {
-  if (selectedId !== null && availableOnlyBox.checked && isFullyBooked(ROOMS[selectedId], dateInput.value)) {
+  if (selectedId !== null && availableOnlyBox.checked && roomDateStatus(ROOMS[selectedId], dateInput.value) !== 'available') {
     selectedId = null;
   }
   renderGrid(searchBox.value);
