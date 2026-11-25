@@ -292,39 +292,6 @@ def main():
                         {"x0": b[0], "y0": b[1], "x1": b[2], "y1": b[3]} for b in boxes[1:]
                     ]
 
-    # 4. Some rooms are named directly on the drawing itself, not through a
-    # numbered legend (e.g. "COBDEN HALL" printed right on its own shape).
-    # For those, the room's own text-label box already IS a reasonable
-    # stand-in for its location -- no legend/digit matching needed.
-    #
-    # Crucially, this must NEVER apply to a legend member (anything in
-    # `in_column`): its own box sits inside the side legend panel, not on
-    # the drawing, so if its bullet match failed, falling back to that box
-    # would silently label it with the wrong kind of location entirely
-    # (legend text position passed off as a real room location).
-    in_column_ids = {id(room) for room in in_column}
-    NOT_A_ROOM = NEVER_BULLETED | {"CAMPUS", "SMOKING", "MAN ENTRANCE"}
-    # The crest/logo text is 3-4 OCR lines stacked vertically ("CARLOW",
-    # "COLLEGE", "ST.PATRICK'S", "Third Level Education"); depending on
-    # exactly how the merge step groups them, it can come out as one block
-    # or split across a couple -- match by prefix so either way is caught.
-    NOT_A_ROOM_PREFIXES = ("CARLOW COLLEGE", "ST.PATRICK'S")
-    direct_label_count = 0
-    for room in rooms:
-        if "location_box" in room or id(room) in in_column_ids:
-            continue
-        name_upper = room["name"].upper()
-        if (
-            name_upper in NOT_A_ROOM
-            or name_upper.startswith("OFFICES")
-            or name_upper.startswith(NOT_A_ROOM_PREFIXES)
-        ):
-            continue
-        room["location_box"] = dict(room["box"])
-        direct_label_count += 1
-    print(f"\n{direct_label_count} more room(s) matched using their own on-map label position "
-          f"(named directly on the drawing, not through a numbered legend)")
-
     matched = sum(1 for r in rooms if "location_box" in r)
     print(f"\n=== {matched} / {len(rooms)} rooms matched to a real drawing location ===")
     for r in rooms:

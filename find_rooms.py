@@ -133,15 +133,6 @@ def find_rooms(image_path, ocr=None, verbose=True, return_groups=False):
         {"name": fix_squished_words(" ".join(e["text"] for e in g)), "box": _union_box(g), "_group": g}
         for g in groups
     ]
-    # The campus crest/logo text ("CARLOW COLLEGE ST.PATRICK'S ...") is not
-    # a bookable room -- it can come out merged as one block or (depending
-    # on how the bullet-number check happens to read nearby pixels) split
-    # across a couple, so match by prefix rather than one exact string.
-    NOT_A_ROOM_PREFIXES = ("CARLOW COLLEGE", "ST.PATRICK'S")
-    rooms = [
-        r for r in rooms
-        if not r["name"].upper().startswith(NOT_A_ROOM_PREFIXES) and r["name"].upper() != "CAMPUS"
-    ]
     rooms = _dedup_rooms_keep_first(rooms)
     floor_headers = dedup_keep_order(floor_headers)
 
