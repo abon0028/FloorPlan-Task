@@ -222,7 +222,7 @@
   .modal-card h3 { margin: 0 0 2px; font-size: 17px; }
   .modal-card .modal-sub { color: var(--muted); font-size: 13px; margin-bottom: 14px; }
   .modal-card label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin: 10px 0 4px; }
-  .modal-card input, .modal-card textarea {
+  .modal-card input, .modal-card textarea, .modal-card select {
     width: 100%;
     padding: 8px 10px;
     border: 1px solid var(--border);
@@ -301,6 +301,18 @@ const TIME_SLOTS = [
   '13:00-14:00', '14:00-15:00', '15:00-16:00', '16:00-17:00',
   '17:00-18:00', '18:00-19:00', '19:00-20:00',
 ];
+// The hour marks a booking's Start/End pickers can land on -- one more
+// entry than TIME_SLOTS, since each slot's end is the next slot's start.
+const SLOT_BOUNDARIES = TIME_SLOTS.map(s => s.split('-')[0]).concat([TIME_SLOTS[TIME_SLOTS.length - 1].split('-')[1]]);
+
+// Every TIME_SLOTS entry whose hour range falls within [startTime, endTime)
+// -- this is what lets one booking span several consecutive hourly slots.
+function slotsInRange(startTime, endTime) {
+  return TIME_SLOTS.filter(s => {
+    const [a, b] = s.split('-');
+    return a >= startTime && b <= endTime;
+  });
+}
 
 // Placeholder public holiday list -- just a couple of fixed-date examples
 // (New Year's Day, Christmas Day) so the mechanism has something to show.
@@ -354,18 +366,23 @@ function formatDisplayDate(dateStr) {
 }
 
 function renderBookingForm(room, date, slot) {
-  const [startTime, endTime] = slot.split('-');
+  const [clickedStart, clickedEnd] = slot.split('-');
+  const startOptions = SLOT_BOUNDARIES.slice(0, -1);
+  const endOptions = SLOT_BOUNDARIES.slice(1);
+  const optionTags = (options, selected) =>
+    options.map(t => `<option value="${t}"${t === selected ? ' selected' : ''}>${t}</option>`).join('');
+
   modalContent.innerHTML = `
     <h3>${room.name} &mdash; ${formatDisplayDate(date)}</h3>
     <div class="modal-sub">${room.wing || 'Not part of a numbered wing'}</div>
     <div class="time-row">
       <div>
         <label>Start Time</label>
-        <div class="time-box">${startTime}</div>
+        <select id="f_start">${optionTags(startOptions, clickedStart)}</select>
       </div>
       <div>
         <label>End Time</label>
-        <div class="time-box">${endTime}</div>
+        <select id="f_end">${optionTags(endOptions, clickedEnd)}</select>
       </div>
     </div>
     <label>Name (student / lecturer)</label>
@@ -386,6 +403,8 @@ function renderBookingForm(room, date, slot) {
   `;
   document.getElementById('f_cancel').addEventListener('click', closeBookingModal);
   document.getElementById('f_submit').addEventListener('click', () => {
+    const startTime = document.getElementById('f_start').value;
+    const endTime = document.getElementById('f_end').value;
     const name = document.getElementById('f_name').value.trim();
     const mobile = document.getElementById('f_mobile').value.trim();
     const studentId = document.getElementById('f_id').value.trim();
@@ -393,6 +412,18 @@ function renderBookingForm(room, date, slot) {
     const meeting = document.getElementById('f_meeting').value.trim();
     const errorEl = document.getElementById('f_error');
 
+    if (endTime <= startTime) {
+      errorEl.textContent = 'End Time must be after Start Time.';
+      errorEl.style.display = 'block';
+      return;
+    }
+    const coveredSlots = slotsInRange(startTime, endTime);
+    const alreadyBooked = coveredSlots.filter(s => isSlotBooked(room, date, s));
+    if (alreadyBooked.length > 0) {
+      errorEl.textContent = 'One or more of those hours is already booked (' + alreadyBooked.join(', ') + ').';
+      errorEl.style.display = 'block';
+      return;
+    }
     if (!name || !mobile || !studentId || !email || !meeting) {
       errorEl.textContent = 'Please fill in all fields.';
       errorEl.style.display = 'block';
@@ -404,17 +435,25 @@ function renderBookingForm(room, date, slot) {
       return;
     }
 
-    saveBooking(room, date, slot, {
+    const bookingDetails = {
       name, mobile, id: studentId, email, meeting,
+      startTime, endTime, slots: coveredSlots,
       bookedAt: new Date().toISOString(),
-    });
+    };
+    coveredSlots.forEach(s => saveBooking(room, date, s, bookingDetails));
     closeBookingModal();
     refreshAfterBookingChange();
   });
 }
 
 function renderBookingDetails(room, date, slot, details) {
-  const [startTime, endTime] = slot.split('-');
+  // Fall back gracefully for bookings saved before multi-slot ranges existed
+  // (they only have the single clicked slot, no startTime/endTime/slots).
+  const [fallbackStart, fallbackEnd] = slot.split('-');
+  const startTime = details.startTime || fallbackStart;
+  const endTime = details.endTime || fallbackEnd;
+  const coveredSlots = details.slots || [slot];
+
   modalContent.innerHTML = `
     <h3>${room.name} &mdash; ${formatDisplayDate(date)}</h3>
     <div class="modal-sub">${room.wing || 'Not part of a numbered wing'}</div>
@@ -440,7 +479,7 @@ function renderBookingDetails(room, date, slot, details) {
   `;
   document.getElementById('d_close').addEventListener('click', closeBookingModal);
   document.getElementById('d_cancel').addEventListener('click', () => {
-    cancelBooking(room, date, slot);
+    coveredSlots.forEach(s => cancelBooking(room, date, s));
     closeBookingModal();
     refreshAfterBookingChange();
   });
