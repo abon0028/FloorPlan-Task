@@ -226,6 +226,65 @@ TEMPLATE = """<!DOCTYPE html>
   .map-popover .slot.available { background: var(--available-bg); color: var(--available); }
   .map-popover .slot.available:hover { background: var(--available-bg-hover); }
   .map-popover .slot.unavailable { background: var(--unavailable-bg); color: var(--unavailable); }
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.45);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 20;
+    padding: 20px;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-card {
+    background: white;
+    border-radius: 10px;
+    padding: 20px;
+    width: 380px;
+    max-width: 100%;
+    max-height: 85vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.25);
+  }
+  .modal-card h3 { margin: 0 0 2px; font-size: 17px; }
+  .modal-card .modal-sub { color: var(--muted); font-size: 13px; margin-bottom: 14px; }
+  .modal-card label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin: 10px 0 4px; }
+  .modal-card input, .modal-card textarea {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 14px;
+    font-family: inherit;
+  }
+  .modal-card textarea { resize: vertical; min-height: 60px; }
+  .time-row { display: flex; gap: 10px; margin-top: 10px; }
+  .time-row > div { flex: 1; }
+  .time-box {
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 14px;
+    background: #f8fafc;
+    color: var(--ink);
+  }
+  .modal-actions { display: flex; gap: 8px; margin-top: 16px; }
+  .modal-actions button {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 14px;
+  }
+  .modal-actions .btn-primary { background: var(--available); color: white; }
+  .modal-actions .btn-danger { background: var(--unavailable); color: white; }
+  .modal-actions .btn-secondary { background: #e5e7eb; color: var(--ink); }
+  .detail-row { margin-bottom: 10px; font-size: 14px; }
+  .detail-row .label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; display: block; margin-bottom: 1px; }
+  .form-error { color: var(--unavailable); font-size: 12px; margin-top: 8px; display: none; }
 </style>
 </head>
 <body>
@@ -258,6 +317,9 @@ TEMPLATE = """<!DOCTYPE html>
     <table class="schedule" id="scheduleTable"></table>
   </div>
 </div>
+<div class="modal-overlay" id="bookingModal">
+  <div class="modal-card" id="modalContent"></div>
+</div>
 
 <script>
 const ROOMS = __ROOMS_JSON__;
@@ -284,8 +346,133 @@ const popoverClose = document.getElementById('popoverClose');
 const popoverTitle = document.getElementById('popoverTitle');
 const popoverWing = document.getElementById('popoverWing');
 const popoverSlots = document.getElementById('popoverSlots');
+const bookingModal = document.getElementById('bookingModal');
+const modalContent = document.getElementById('modalContent');
 
 let selectedId = null;
+
+function refreshAfterBookingChange() {
+  renderGrid(searchBox.value);
+  renderHotspots();
+  if (selectedId !== null && mapPopover.classList.contains('open')) {
+    renderPopoverSlots(ROOMS[selectedId]);
+  }
+}
+
+function closeBookingModal() {
+  bookingModal.classList.remove('open');
+}
+bookingModal.addEventListener('click', (e) => {
+  if (e.target === bookingModal) closeBookingModal();
+});
+
+function openSlotModal(room, date, slot) {
+  const existing = getBooking(room, date, slot);
+  if (existing) renderBookingDetails(room, date, slot, existing);
+  else renderBookingForm(room, date, slot);
+  bookingModal.classList.add('open');
+}
+
+function formatDisplayDate(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  const weekday = d.toLocaleDateString('en-GB', { weekday: 'short' });
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  return `${weekday}, ${dd}/${mm}/${d.getFullYear()}`;
+}
+
+function renderBookingForm(room, date, slot) {
+  const [startTime, endTime] = slot.split('-');
+  modalContent.innerHTML = `
+    <h3>${room.name} &mdash; ${formatDisplayDate(date)}</h3>
+    <div class="modal-sub">${room.wing || 'Not part of a numbered wing'}</div>
+    <div class="time-row">
+      <div>
+        <label>Start Time</label>
+        <div class="time-box">${startTime}</div>
+      </div>
+      <div>
+        <label>End Time</label>
+        <div class="time-box">${endTime}</div>
+      </div>
+    </div>
+    <label>Name (student / lecturer)</label>
+    <input type="text" id="f_name">
+    <label>Mobile number</label>
+    <input type="tel" id="f_mobile" placeholder="Phone number">
+    <label>ID (student / staff)</label>
+    <input type="text" id="f_id">
+    <label>University email</label>
+    <input type="email" id="f_email">
+    <label>Meeting information</label>
+    <textarea id="f_meeting" placeholder="Enter your meeting description here"></textarea>
+    <div class="form-error" id="f_error"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="f_cancel">&#10006; Cancel</button>
+      <button class="btn-primary" id="f_submit">&#10003; Book</button>
+    </div>
+  `;
+  document.getElementById('f_cancel').addEventListener('click', closeBookingModal);
+  document.getElementById('f_submit').addEventListener('click', () => {
+    const name = document.getElementById('f_name').value.trim();
+    const mobile = document.getElementById('f_mobile').value.trim();
+    const studentId = document.getElementById('f_id').value.trim();
+    const email = document.getElementById('f_email').value.trim();
+    const meeting = document.getElementById('f_meeting').value.trim();
+    const errorEl = document.getElementById('f_error');
+
+    if (!name || !mobile || !studentId || !email || !meeting) {
+      errorEl.textContent = 'Please fill in all fields.';
+      errorEl.style.display = 'block';
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      errorEl.textContent = 'Please enter a valid email address.';
+      errorEl.style.display = 'block';
+      return;
+    }
+
+    saveBooking(room, date, slot, {
+      name, mobile, id: studentId, email, meeting,
+      bookedAt: new Date().toISOString(),
+    });
+    closeBookingModal();
+    refreshAfterBookingChange();
+  });
+}
+
+function renderBookingDetails(room, date, slot, details) {
+  const [startTime, endTime] = slot.split('-');
+  modalContent.innerHTML = `
+    <h3>${room.name} &mdash; ${formatDisplayDate(date)}</h3>
+    <div class="modal-sub">${room.wing || 'Not part of a numbered wing'}</div>
+    <div class="time-row">
+      <div>
+        <label>Start Time</label>
+        <div class="time-box">${startTime}</div>
+      </div>
+      <div>
+        <label>End Time</label>
+        <div class="time-box">${endTime}</div>
+      </div>
+    </div>
+    <div class="detail-row"><span class="label">Name</span>${details.name}</div>
+    <div class="detail-row"><span class="label">Mobile</span>${details.mobile}</div>
+    <div class="detail-row"><span class="label">ID</span>${details.id}</div>
+    <div class="detail-row"><span class="label">University email</span>${details.email}</div>
+    <div class="detail-row"><span class="label">Meeting information</span>${details.meeting}</div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="d_close">&#10006; Close</button>
+      <button class="btn-danger" id="d_cancel">Cancel Booking</button>
+    </div>
+  `;
+  document.getElementById('d_close').addEventListener('click', closeBookingModal);
+  document.getElementById('d_cancel').addEventListener('click', () => {
+    cancelBooking(room, date, slot);
+    closeBookingModal();
+    refreshAfterBookingChange();
+  });
+}
 
 function todayStr() {
   const d = new Date();
@@ -309,11 +496,18 @@ function unbookableReason(dateStr) {
 }
 
 function slotKey(room, date, slot) { return 'slotbooking:' + room.name + '|' + date + '|' + slot; }
-function isSlotBooked(room, date, slot) { return localStorage.getItem(slotKey(room, date, slot)) === '1'; }
-function setSlotBooked(room, date, slot, value) {
-  if (value) localStorage.setItem(slotKey(room, date, slot), '1');
-  else localStorage.removeItem(slotKey(room, date, slot));
+function getBooking(room, date, slot) {
+  const raw = localStorage.getItem(slotKey(room, date, slot));
+  if (!raw) return null;
+  try { return JSON.parse(raw); } catch (e) { return null; }
 }
+function saveBooking(room, date, slot, details) {
+  localStorage.setItem(slotKey(room, date, slot), JSON.stringify(details));
+}
+function cancelBooking(room, date, slot) {
+  localStorage.removeItem(slotKey(room, date, slot));
+}
+function isSlotBooked(room, date, slot) { return getBooking(room, date, slot) !== null; }
 function isFullyBooked(room, date) {
   if (!isBookableDate(date)) return true; // closed day -- nothing is available
   return TIME_SLOTS.every(slot => isSlotBooked(room, date, slot));
@@ -358,12 +552,7 @@ function renderPopoverSlots(room) {
     const btn = document.createElement('button');
     btn.className = 'slot ' + (booked ? 'unavailable' : 'available');
     btn.textContent = slot + (booked ? ' X' : '');
-    btn.addEventListener('click', () => {
-      setSlotBooked(room, date, slot, !booked);
-      renderPopoverSlots(room);
-      renderGrid(searchBox.value);
-      renderHotspots();
-    });
+    btn.addEventListener('click', () => openSlotModal(room, date, slot));
     popoverSlots.appendChild(btn);
   });
 }
@@ -461,12 +650,8 @@ function renderGrid(filterText) {
         } else {
           const booked = isSlotBooked(room, date, slot);
           td.className = 'slot-cell ' + (booked ? 'unavailable' : 'available');
-          td.title = room.name + ' - ' + slot + (booked ? ' (booked, click to cancel)' : ' (available, click to book)');
-          td.addEventListener('click', () => {
-            setSlotBooked(room, date, slot, !booked);
-            renderGrid(searchBox.value);
-            renderHotspots();
-          });
+          td.title = room.name + ' - ' + slot + (booked ? ' (booked - click to view/cancel)' : ' (available - click to book)');
+          td.addEventListener('click', () => openSlotModal(room, date, slot));
         }
         tr.appendChild(td);
       });
