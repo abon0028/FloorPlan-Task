@@ -63,25 +63,36 @@ TEMPLATE = """<!DOCTYPE html>
     background: #faf7f7;
   }
   h1, h2, h3 { font-family: var(--font-heading); }
-  header {
-    padding: 18px 22px;
-    border-bottom: 3px solid var(--accent);
-    background: white;
+  header { background: white; }
+  .topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 14px 22px;
+    border-bottom: 1px solid var(--border);
   }
-  header h1 { margin: 0; font-size: 22px; color: var(--ink); }
-  header p { margin: 5px 0 0; color: var(--muted); font-size: 13px; }
-  .overview-link {
-    display: inline-block;
-    margin-top: 8px;
-    color: var(--accent);
-    font-size: 13px;
+  .topbar h1 { margin: 0; font-size: 22px; color: var(--accent); }
+  #accountInfo { color: var(--muted); font-size: 13px; }
+  #accountInfo a { color: var(--accent); font-weight: 600; text-decoration: none; }
+  #accountInfo a:hover { text-decoration: underline; }
+  .navbar {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    background: var(--accent);
+    padding: 10px 22px;
+  }
+  .navbar a {
+    color: white;
+    font-size: 14px;
     font-weight: 600;
     text-decoration: none;
   }
-  .overview-link:hover { text-decoration: underline; }
-  #accountInfo { color: var(--muted); font-weight: 400; margin-left: 12px; }
-  #accountInfo a { color: var(--accent); font-weight: 600; text-decoration: none; }
-  #accountInfo a:hover { text-decoration: underline; }
+  .navbar a:hover { text-decoration: underline; }
+  .header-body { padding: 14px 22px; }
+  .header-body p { margin: 0; color: var(--muted); font-size: 13px; }
   .legend { display: flex; gap: 16px; margin-top: 10px; flex-wrap: wrap; }
   .legend-item { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink); font-weight: 600; }
   .legend .swatch { width: 16px; height: 16px; border-radius: 4px; display: inline-block; }
@@ -385,15 +396,22 @@ TEMPLATE = """<!DOCTYPE html>
 </head>
 <body>
 <header>
-  <h1>__TITLE__ &mdash; Campus Map</h1>
-  <p>__MAPPED_COUNT__ of __TOTAL_COUNT__ rooms have a confirmed location on the map -- click a box to book it right there, per time slot.</p>
-  <div class="legend">
-    <span class="legend-item"><span class="swatch available"></span>Available</span>
-    <span class="legend-item"><span class="swatch yours"></span>Your Booking</span>
-    <span class="legend-item"><span class="swatch unavailable"></span>Unavailable</span>
+  <div class="topbar">
+    <h1>__TITLE__ &mdash; Campus Map</h1>
+    <span id="accountInfo"></span>
   </div>
-  <a class="overview-link" href="/overview">View all bookings &rarr;</a>
-  <span class="overview-link" id="accountInfo"></span>
+  <nav class="navbar">
+    <a href="/">Map</a>
+    <a href="/overview">View all bookings</a>
+  </nav>
+  <div class="header-body">
+    <p>__MAPPED_COUNT__ of __TOTAL_COUNT__ rooms have a confirmed location on the map -- click a box to book it right there, per time slot.</p>
+    <div class="legend">
+      <span class="legend-item"><span class="swatch available"></span>Available</span>
+      <span class="legend-item"><span class="swatch yours"></span>Your Booking</span>
+      <span class="legend-item"><span class="swatch unavailable"></span>Unavailable</span>
+    </div>
+  </div>
 </header>
 <div class="map-panel">
   <div class="map-wrap" id="mapWrap">
