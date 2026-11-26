@@ -34,10 +34,33 @@ from werkzeug.security import check_password_hash, generate_password_hash
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(APP_DIR, "bookings.db")
 SECRET_KEY_PATH = os.path.join(APP_DIR, ".secret_key")
+ENV_FILE_PATH = os.path.join(APP_DIR, ".env")
 
 EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 MIN_PASSWORD_LENGTH = 8
 RESET_TOKEN_LIFETIME = timedelta(hours=1)
+
+
+def _load_local_env_file():
+    """Loads KEY=VALUE lines from a local .env file (gitignored -- see
+    .env.example) into os.environ, for local SMTP testing without having to
+    re-type environment variables every time the server starts. Only fills
+    in values that aren't already set, so real environment variables (e.g.
+    PythonAnywhere's own dashboard-set ones in production) always win."""
+    if not os.path.exists(ENV_FILE_PATH):
+        return
+    with open(ENV_FILE_PATH, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+            os.environ.setdefault(key, value)
+
+
+_load_local_env_file()
 
 app = Flask(__name__)
 

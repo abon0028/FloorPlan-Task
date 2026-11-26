@@ -12,3 +12,6 @@ bookings.db
 
 # session-signing secret generated/persisted by server.py, never committed
 .secret_key
+
+# local SMTP credentials for testing "forgot password" -- never committed
+.env
