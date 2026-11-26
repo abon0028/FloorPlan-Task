@@ -294,6 +294,49 @@ TEMPLATE = """<!DOCTYPE html>
     background: #f8fafc;
     color: var(--ink);
   }
+  .time-summary-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #f8fafc;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin: 12px 0;
+  }
+  .time-summary-text { flex: 1; font-size: 13px; color: var(--ink); }
+  .time-summary-bar select {
+    padding: 6px 8px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: inherit;
+    background: white;
+  }
+  .trash-btn {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 10px;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--muted);
+    line-height: 1;
+  }
+  .trash-btn:hover { background: #f1f5f9; color: var(--unavailable); }
+  .btn-submit-times {
+    width: 100%;
+    margin-top: 16px;
+    padding: 10px;
+    border: none;
+    border-radius: 6px;
+    background: var(--accent);
+    color: white;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .btn-submit-times:disabled { opacity: 0.6; cursor: not-allowed; }
   .modal-actions { display: flex; gap: 8px; margin-top: 16px; }
   .modal-actions button {
     flex: 1;
@@ -476,7 +519,6 @@ function formatDisplayDate(dateStr) {
 
 function renderBookingForm(room, date, slot) {
   const [clickedStart, clickedEnd] = slot.split('-');
-  const startOptions = SLOT_BOUNDARIES.slice(0, -1);
   const endOptions = SLOT_BOUNDARIES.slice(1);
   const optionTags = (options, selected) =>
     options.map(t => `<option value="${t}"${t === selected ? ' selected' : ''}>${t}</option>`).join('');
@@ -484,15 +526,10 @@ function renderBookingForm(room, date, slot) {
   modalContent.innerHTML = `
     <h3>${room.name} &mdash; ${formatDisplayDate(date)}</h3>
     <div class="modal-sub">${room.wing || 'Not part of a numbered wing'}</div>
-    <div class="time-row">
-      <div>
-        <label>Start Time</label>
-        <select id="f_start">${optionTags(startOptions, clickedStart)}</select>
-      </div>
-      <div>
-        <label>End Time</label>
-        <select id="f_end">${optionTags(endOptions, clickedEnd)}</select>
-      </div>
+    <div class="time-summary-bar">
+      <div class="time-summary-text"><strong>${room.name}</strong>: ${clickedStart} ${formatDisplayDate(date)} until&hellip;</div>
+      <select id="f_end">${optionTags(endOptions, clickedEnd)}</select>
+      <button type="button" class="trash-btn" id="f_remove" title="Cancel this booking">&#128465;</button>
     </div>
     <label>Name (student / lecturer)</label>
     <input type="text" id="f_name">
@@ -503,14 +540,11 @@ function renderBookingForm(room, date, slot) {
     <label>Meeting information</label>
     <textarea id="f_meeting" placeholder="Enter your meeting description here"></textarea>
     <div class="form-error" id="f_error"></div>
-    <div class="modal-actions">
-      <button class="btn-secondary" id="f_cancel">&#10006; Cancel</button>
-      <button class="btn-primary" id="f_submit">&#10003; Book</button>
-    </div>
+    <button class="btn-submit-times" id="f_submit">Submit Times</button>
   `;
-  document.getElementById('f_cancel').addEventListener('click', closeBookingModal);
+  document.getElementById('f_remove').addEventListener('click', closeBookingModal);
   document.getElementById('f_submit').addEventListener('click', async () => {
-    const startTime = document.getElementById('f_start').value;
+    const startTime = clickedStart;
     const endTime = document.getElementById('f_end').value;
     const name = document.getElementById('f_name').value.trim();
     const mobile = document.getElementById('f_mobile').value.trim();
@@ -538,7 +572,7 @@ function renderBookingForm(room, date, slot) {
     }
 
     submitBtn.disabled = true;
-    submitBtn.textContent = 'Booking...';
+    submitBtn.textContent = 'Submitting...';
     const result = await createBookingOnServer(
       room, date, startTime, endTime, coveredSlots,
       { name, mobile, id: studentId, meeting }
@@ -547,7 +581,7 @@ function renderBookingForm(room, date, slot) {
       errorEl.textContent = result.error;
       errorEl.style.display = 'block';
       submitBtn.disabled = false;
-      submitBtn.textContent = '✓ Book';
+      submitBtn.textContent = 'Submit Times';
       return;
     }
     await loadBookingsForDate(date);
