@@ -21,9 +21,11 @@ delete that file to reset everything, including accounts.
 import os
 import re
 import secrets
+import smtplib
 import sqlite3
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from email.message import EmailMessage
 from functools import wraps
 
 from flask import Flask, g, jsonify, redirect, request, send_from_directory, session, url_for
@@ -35,6 +37,7 @@ SECRET_KEY_PATH = os.path.join(APP_DIR, ".secret_key")
 
 EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 MIN_PASSWORD_LENGTH = 8
+RESET_TOKEN_LIFETIME = timedelta(hours=1)
 
 app = Flask(__name__)
 
@@ -58,6 +61,37 @@ def _get_or_create_secret_key():
 app.secret_key = _get_or_create_secret_key()
 
 
+def send_email(to_address, subject, body):
+    """Send a plain-text email via SMTP, configured with environment
+    variables (SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, SMTP_FROM --
+    see DEPLOY.md). With no SMTP_HOST set (e.g. running locally without
+    setting any of this up), prints the email to the console instead, so
+    the reset flow is still fully testable without real SMTP credentials."""
+    host = os.environ.get("SMTP_HOST")
+    if not host:
+        print("=" * 60, flush=True)
+        print("[dev] No SMTP_HOST configured -- printing email instead of sending it.", flush=True)
+        print(f"To: {to_address}\nSubject: {subject}\n\n{body}", flush=True)
+        print("=" * 60, flush=True)
+        return
+    port = int(os.environ.get("SMTP_PORT", "587"))
+    user = os.environ.get("SMTP_USER")
+    password = os.environ.get("SMTP_PASSWORD")
+    from_address = os.environ.get("SMTP_FROM", user)
+
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = from_address
+    msg["To"] = to_address
+    msg.set_content(body)
+
+    with smtplib.SMTP(host, port) as smtp:
+        smtp.starttls()
+        if user and password:
+            smtp.login(user, password)
+        smtp.send_message(msg)
+
+
 def get_db():
     if "db" not in g:
         g.db = sqlite3.connect(DB_PATH)
@@ -75,6 +109,7 @@ def close_db(exception=None):
 
 def init_db():
     db = sqlite3.connect(DB_PATH)
+    db.row_factory = sqlite3.Row
     db.execute(
         """
         CREATE TABLE IF NOT EXISTS users (
@@ -106,6 +141,13 @@ def init_db():
         )
         """
     )
+    # Migration for databases created before the password-reset feature --
+    # CREATE TABLE IF NOT EXISTS above won't add columns to an existing table.
+    existing_cols = {row["name"] for row in db.execute("PRAGMA table_info(users)")}
+    if "reset_token" not in existing_cols:
+        db.execute("ALTER TABLE users ADD COLUMN reset_token TEXT")
+    if "reset_token_expires" not in existing_cols:
+        db.execute("ALTER TABLE users ADD COLUMN reset_token_expires TEXT")
     db.commit()
     db.close()
 
@@ -154,6 +196,16 @@ def login_page():
     return send_from_directory(APP_DIR, "login.html")
 
 
+@app.route("/forgot-password", methods=["GET"])
+def forgot_password_page():
+    return send_from_directory(APP_DIR, "forgot_password.html")
+
+
+@app.route("/reset-password", methods=["GET"])
+def reset_password_page():
+    return send_from_directory(APP_DIR, "reset_password.html")
+
+
 @app.route("/api/signup", methods=["POST"])
 def signup_submit():
     data = request.get_json(force=True, silent=True) or {}
@@ -195,6 +247,69 @@ def login_submit():
 
     session["user_id"] = user["id"]
     session["email"] = user["email"]
+    return jsonify({"ok": True})
+
+
+@app.route("/api/forgot-password", methods=["POST"])
+def forgot_password_submit():
+    data = request.get_json(force=True, silent=True) or {}
+    email = (data.get("email") or "").strip().lower()
+
+    # Always return the same message whether or not the email is registered
+    # -- otherwise this endpoint would let anyone check who has an account.
+    generic_response = jsonify({"ok": True, "message": "If an account exists for that email, a reset link has been sent."})
+
+    if not EMAIL_RE.match(email):
+        return generic_response
+
+    db = get_db()
+    user = db.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
+    if not user:
+        return generic_response
+
+    token = secrets.token_urlsafe(32)
+    expires_at = (datetime.now(timezone.utc) + RESET_TOKEN_LIFETIME).isoformat()
+    db.execute(
+        "UPDATE users SET reset_token = ?, reset_token_expires = ? WHERE id = ?",
+        (token, expires_at, user["id"]),
+    )
+    db.commit()
+
+    reset_link = request.host_url.rstrip("/") + "/reset-password?token=" + token
+    send_email(
+        email,
+        "Reset your campus booking password",
+        "Someone (hopefully you) asked to reset the password for this account.\n\n"
+        f"Reset it here (expires in 1 hour): {reset_link}\n\n"
+        "If you didn't request this, you can ignore this email.",
+    )
+    return generic_response
+
+
+@app.route("/api/reset-password", methods=["POST"])
+def reset_password_submit():
+    data = request.get_json(force=True, silent=True) or {}
+    token = data.get("token") or ""
+    password = data.get("password") or ""
+
+    if len(password) < MIN_PASSWORD_LENGTH:
+        return jsonify({"error": f"Password must be at least {MIN_PASSWORD_LENGTH} characters."}), 400
+
+    db = get_db()
+    user = db.execute("SELECT * FROM users WHERE reset_token = ?", (token,)).fetchone()
+    if not user or not user["reset_token_expires"]:
+        return jsonify({"error": "That reset link is invalid. Request a new one."}), 400
+
+    expires_at = datetime.fromisoformat(user["reset_token_expires"])
+    if datetime.now(timezone.utc) > expires_at:
+        return jsonify({"error": "That reset link has expired. Request a new one."}), 400
+
+    password_hash = generate_password_hash(password)
+    db.execute(
+        "UPDATE users SET password_hash = ?, reset_token = NULL, reset_token_expires = NULL WHERE id = ?",
+        (password_hash, user["id"]),
+    )
+    db.commit()
     return jsonify({"ok": True})
 
 

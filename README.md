@@ -30,7 +30,10 @@ possible to their actual location on the map.
 - **Accounts** — real email + password sign-up/log-in (`login.html`,
   `signup.html`), so multiple students and staff can use the same
   deployment. Everyone can only view full details of, or cancel, their own
-  bookings — not anyone else's.
+  bookings — not anyone else's. Includes "Forgot password" (`forgot_password.html`
+  / `reset_password.html`) — emails a time-limited reset link via SMTP (see
+  `DEPLOY.md`); locally, with no SMTP configured, the link is printed to the
+  console instead, so the flow is still fully testable.
 - **Bookings overview** (`overview.html`, at `/overview`) — stat cards and a
   "most-booked rooms" chart covering everyone's bookings (no personal info in
   those), plus a "My Bookings" list of just your own, with search, an
@@ -79,10 +82,9 @@ To make it reachable by other people (students/staff, not just you), see
 - 12 of the 48 extracted entries have no map location: 1 (`IT ROOM`) is a
   real room PaddleOCR just couldn't confidently locate; the other 11 are
   wing labels, office blocks, and similar non-room entries.
-- Accounts have no email verification and no "forgot password" flow — anyone
-  can sign up with any email address (nothing confirms they own it), and a
-  lost password means asking whoever controls the database to delete the
-  account and sign up again.
+- Accounts have no email verification at signup — anyone can sign up with
+  any email address with nothing confirming they own it (password reset
+  does require owning the inbox, via a real emailed link).
 - No staff/student permission difference — every account behaves the same:
   it can see full details of, and cancel, only its own bookings.
 - `PUBLIC_HOLIDAYS` in `build_app.py` holds Malaysia's national public

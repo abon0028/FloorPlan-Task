@@ -68,7 +68,29 @@ Still on the **Web** tab, under **Environment variables**, add:
   this, `server.py` generates and persists its own key in a local file
   instead — also fine, just slightly less standard practice.
 
-## 6. Reload
+## 6. Set up email for password resets (optional, but recommended)
+
+Without this, "Forgot password" still works for testing — it just prints the
+reset link to the app's log output (visible from the log links on the
+**Web** tab) instead of emailing it, which isn't something you want real
+users to have to ask you for.
+
+To send real emails, add these as more **Environment variables** (same place
+as `SECRET_KEY`). The easiest option is a Gmail account with an
+[App Password](https://myaccount.google.com/apppasswords) (requires 2-Step
+Verification turned on for that Google account first — a regular Gmail
+password won't work here):
+
+- `SMTP_HOST` — `smtp.gmail.com`
+- `SMTP_PORT` — `587`
+- `SMTP_USER` — the Gmail address sending the emails
+- `SMTP_PASSWORD` — the 16-character App Password (not your regular Gmail
+  password)
+- `SMTP_FROM` — optional, defaults to `SMTP_USER` if not set
+
+Any other SMTP provider works the same way — just use its host/port instead.
+
+## 7. Reload
 
 Click the big green **Reload** button at the top of the **Web** tab. Your
 app is now live at `https://yourusername.pythonanywhere.com`, with HTTPS
