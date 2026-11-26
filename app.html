@@ -498,11 +498,6 @@ function renderBookingForm(room, date, slot) {
   modalContent.innerHTML = `
     <h3>${room.name} &mdash; ${formatDisplayDate(date)}</h3>
     <div class="modal-sub">${room.wing || 'Not part of a numbered wing'}</div>
-    <div class="time-summary-bar">
-      <div class="time-summary-text"><strong>${room.name}</strong>: ${clickedStart} ${formatDisplayDate(date)} until&hellip;</div>
-      <select id="f_end">${optionTags(endOptions, clickedEnd)}</select>
-      <button type="button" class="trash-btn" id="f_remove" title="Cancel this booking">&#128465;</button>
-    </div>
     <label>Name (student / lecturer)</label>
     <input type="text" id="f_name">
     <label>Mobile number</label>
@@ -512,6 +507,11 @@ function renderBookingForm(room, date, slot) {
     <label>Meeting information</label>
     <textarea id="f_meeting" placeholder="Enter your meeting description here"></textarea>
     <div class="form-error" id="f_error"></div>
+    <div class="time-summary-bar">
+      <div class="time-summary-text"><strong>${room.name}</strong>: ${clickedStart} ${formatDisplayDate(date)} until&hellip;</div>
+      <select id="f_end">${optionTags(endOptions, clickedEnd)}</select>
+      <button type="button" class="trash-btn" id="f_remove" title="Cancel this booking">&#128465;</button>
+    </div>
     <button class="btn-submit-times" id="f_submit">Submit Times</button>
   `;
   document.getElementById('f_remove').addEventListener('click', closeBookingModal);
