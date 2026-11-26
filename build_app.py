@@ -32,13 +32,17 @@ TEMPLATE = """<!DOCTYPE html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>__TITLE__ - Campus Map</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:wght@600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --ink: #1a1a2e;
+    --ink: #22181a;
     --muted: #6b7280;
     --border: #e5e7eb;
-    --accent: #2563eb;
-    --accent-bg: rgba(37, 99, 235, 0.18);
+    --accent: #a6192e;
+    --accent-hover: #841321;
+    --accent-bg: #fbe9ea;
     --available: #16a34a;
     --available-bg: #d7f0db;
     --available-bg-hover: #bfe6c7;
@@ -48,21 +52,24 @@ TEMPLATE = """<!DOCTYPE html>
     --unavailable: #dc2626;
     --unavailable-bg: #f3c6c6;
     --unavailable-bg-hover: #edb0b0;
+    --font-heading: 'Lora', Georgia, serif;
+    --font-body: 'Inter', -apple-system, Segoe UI, Roboto, Arial, sans-serif;
   }
   * { box-sizing: border-box; }
   body {
     margin: 0;
-    font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    font-family: var(--font-body);
     color: var(--ink);
-    background: #f8fafc;
+    background: #faf7f7;
   }
+  h1, h2, h3 { font-family: var(--font-heading); }
   header {
-    padding: 16px 20px;
-    border-bottom: 1px solid var(--border);
+    padding: 18px 22px;
+    border-bottom: 3px solid var(--accent);
     background: white;
   }
-  header h1 { margin: 0; font-size: 20px; }
-  header p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+  header h1 { margin: 0; font-size: 22px; color: var(--ink); }
+  header p { margin: 5px 0 0; color: var(--muted); font-size: 13px; }
   .overview-link {
     display: inline-block;
     margin-top: 8px;
@@ -106,7 +113,7 @@ TEMPLATE = """<!DOCTYPE html>
   .hotspot:hover { background: rgba(22, 163, 74, 0.32); }
   .hotspot.yours { border-color: var(--yours); background: rgba(217, 119, 6, 0.22); }
   .hotspot.unavailable { border-color: var(--unavailable); background: rgba(220, 38, 38, 0.18); }
-  .hotspot.selected { box-shadow: 0 0 0 3px rgba(26, 26, 46, 0.45); z-index: 2; }
+  .hotspot.selected { box-shadow: 0 0 0 3px rgba(166, 25, 46, 0.55); z-index: 2; }
   .grid-panel {
     margin: 0 20px 20px;
     background: white;
@@ -135,6 +142,11 @@ TEMPLATE = """<!DOCTYPE html>
     border: 1px solid var(--border);
     border-radius: 6px;
     font-size: 14px;
+  }
+  .controls input[type=text]:focus, .controls input[type=date]:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-bg);
   }
   .controls label.toggle {
     display: flex;
@@ -190,7 +202,7 @@ TEMPLATE = """<!DOCTYPE html>
     white-space: nowrap;
     cursor: pointer;
   }
-  tr.selected td.room-name { background: #eff6ff; }
+  tr.selected td.room-name { background: var(--accent-bg); }
   td.room-name .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 6px; }
   td.room-name .dot.mapped { background: var(--accent); }
   td.room-name .dot.unmapped { background: #d1d5db; }
@@ -285,6 +297,12 @@ TEMPLATE = """<!DOCTYPE html>
     font-family: inherit;
   }
   .modal-card textarea, .booking-panel textarea { resize: vertical; min-height: 60px; }
+  .modal-card input:focus, .modal-card textarea:focus, .modal-card select:focus,
+  .booking-panel input:focus, .booking-panel textarea:focus, .booking-panel select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-bg);
+  }
   .booking-panel {
     margin: 0 20px 20px;
     background: white;
@@ -345,6 +363,7 @@ TEMPLATE = """<!DOCTYPE html>
     font-size: 14px;
     cursor: pointer;
   }
+  .btn-submit-times:hover:not(:disabled) { background: var(--accent-hover); }
   .btn-submit-times:disabled { opacity: 0.6; cursor: not-allowed; }
   .modal-actions { display: flex; gap: 8px; margin-top: 16px; }
   .modal-actions button {

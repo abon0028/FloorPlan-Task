@@ -4,27 +4,34 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Bookings Overview - Campus Map</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:wght@600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --ink: #1a1a2e;
+    --ink: #22181a;
     --muted: #64748b;
     --border: #e2e8f0;
-    --accent: #2563eb;
-    --accent-bg: #eff6ff;
+    --accent: #a6192e;
+    --accent-hover: #841321;
+    --accent-bg: #fbe9ea;
     --available: #16a34a;
     --yours: #d97706;
     --unavailable: #dc2626;
+    --font-heading: 'Lora', Georgia, serif;
+    --font-body: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   }
   * { box-sizing: border-box; }
   body {
     margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-family: var(--font-body);
     color: var(--ink);
-    background: #f8fafc;
+    background: #faf7f7;
     padding: 24px;
   }
+  h1, h2 { font-family: var(--font-heading); }
   .wrap { max-width: 1000px; margin: 0 auto; }
-  header { margin-bottom: 20px; }
+  header { margin-bottom: 20px; padding-bottom: 14px; border-bottom: 3px solid var(--accent); }
   header a { color: var(--accent); text-decoration: none; font-size: 13px; font-weight: 600; }
   #accountInfo { color: var(--muted); font-size: 13px; float: right; }
   #accountInfo a { color: var(--accent); font-weight: 600; text-decoration: none; }
