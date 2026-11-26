@@ -358,11 +358,31 @@ function slotsInRange(startTime, endTime) {
   });
 }
 
-// Placeholder public holiday list -- just a couple of fixed-date examples
-// (New Year's Day, Christmas Day) so the mechanism has something to show.
-// Replace with your institution's actual closure dates (ISO yyyy-mm-dd);
-// dates that move every year (e.g. Easter Monday) need to be added per-year.
-const PUBLIC_HOLIDAYS = ['2026-01-01', '2026-12-25', '2026-12-26'];
+// Malaysia national public holidays, 2026 (source: officeholidays.com,
+// checked 2026-11-26). Six of these -- Chinese New Year, Hari Raya
+// Aidilfitri, Hari Raya Haji, Wesak Day, Awal Muharram, and Maulidur Rasul --
+// follow the Islamic or lunar calendar and are provisional until Malaysia's
+// government confirms them closer to the date; re-check against the official
+// gazette before relying on them. State-only holidays (e.g. Thaipusam,
+// Deepavali, individual sultans'/governors' birthdays) are not included here.
+// This list needs a new set of dates added every year.
+const PUBLIC_HOLIDAYS = [
+  '2026-02-17', // Chinese New Year
+  '2026-02-18', // Chinese New Year holiday
+  '2026-03-20', // Hari Raya Aidilfitri holiday
+  '2026-03-21', // Hari Raya Aidilfitri (provisional)
+  '2026-03-22', // Hari Raya Aidilfitri holiday
+  '2026-03-23', // Hari Raya Aidilfitri holiday
+  '2026-05-01', // Labour Day
+  '2026-05-27', // Hari Raya Haji (provisional)
+  '2026-05-31', // Wesak Day (provisional)
+  '2026-06-01', // Birthday of SPB Yang di-Pertuan Agong
+  '2026-06-17', // Awal Muharram (provisional)
+  '2026-08-25', // Maulidur Rasul -- Birthday of Prophet Muhammad (provisional)
+  '2026-08-31', // National Day (Merdeka Day)
+  '2026-09-16', // Malaysia Day
+  '2026-12-25', // Christmas Day
+];
 
 const mapWrap = document.getElementById('mapWrap');
 const scheduleTable = document.getElementById('scheduleTable');
