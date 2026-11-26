@@ -371,8 +371,15 @@ function slotsInRange(startTime, endTime) {
 // Malaysia list found every Islamic-calendar date marked "(Provisional)"
 // and no Wesak Day entry at all, so 2028 isn't included here rather than
 // guessing -- add it (and each year after) once a source has real dates.
+//
+// New Year's Day (Jan 1) is included even though it's technically a
+// state-level holiday, not a national one: 5 states (Johor, Kedah,
+// Kelantan, Perlis, Terengganu) treat it as a normal working day, but the
+// rest, plus the federal territories, observe it -- included here since
+// that's the majority.
 const PUBLIC_HOLIDAYS = [
   // 2026
+  '2026-01-01', // New Year's Day (not observed in Johor, Kedah, Kelantan, Perlis, Terengganu)
   '2026-02-17', // Chinese New Year
   '2026-02-18', // Chinese New Year holiday
   '2026-03-20', // Hari Raya Aidilfitri holiday
@@ -390,6 +397,7 @@ const PUBLIC_HOLIDAYS = [
   '2026-12-25', // Christmas Day
 
   // 2027
+  '2027-01-01', // New Year's Day (not observed in Johor, Kedah, Kelantan, Perlis, Terengganu)
   '2027-02-06', // Chinese New Year
   '2027-02-07', // Chinese New Year holiday
   '2027-03-10', // Hari Raya Aidilfitri (provisional)
