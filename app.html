@@ -330,15 +330,21 @@ function slotsInRange(startTime, endTime) {
   });
 }
 
-// Malaysia national public holidays, 2026 (source: officeholidays.com,
-// checked 2026-11-26). Six of these -- Chinese New Year, Hari Raya
+// Malaysia national public holidays, 2026-2027 (source: officeholidays.com,
+// checked 2026-11-26). Several of these -- Chinese New Year, Hari Raya
 // Aidilfitri, Hari Raya Haji, Wesak Day, Awal Muharram, and Maulidur Rasul --
 // follow the Islamic or lunar calendar and are provisional until Malaysia's
 // government confirms them closer to the date; re-check against the official
 // gazette before relying on them. State-only holidays (e.g. Thaipusam,
 // Deepavali, individual sultans'/governors' birthdays) are not included here.
-// This list needs a new set of dates added every year.
+//
+// Stops at 2027: that's as far out as officeholidays.com has calculated
+// lunar dates at the time of writing. A check of calendarific.com's 2028
+// Malaysia list found every Islamic-calendar date marked "(Provisional)"
+// and no Wesak Day entry at all, so 2028 isn't included here rather than
+// guessing -- add it (and each year after) once a source has real dates.
 const PUBLIC_HOLIDAYS = [
+  // 2026
   '2026-02-17', // Chinese New Year
   '2026-02-18', // Chinese New Year holiday
   '2026-03-20', // Hari Raya Aidilfitri holiday
@@ -354,6 +360,21 @@ const PUBLIC_HOLIDAYS = [
   '2026-08-31', // National Day (Merdeka Day)
   '2026-09-16', // Malaysia Day
   '2026-12-25', // Christmas Day
+
+  // 2027
+  '2027-02-06', // Chinese New Year
+  '2027-02-07', // Chinese New Year holiday
+  '2027-03-10', // Hari Raya Aidilfitri (provisional)
+  '2027-03-11', // Hari Raya Aidilfitri holiday
+  '2027-05-01', // Labour Day
+  '2027-05-17', // Hari Raya Haji (provisional)
+  '2027-05-20', // Wesak Day (provisional)
+  '2027-06-06', // Awal Muharram (provisional)
+  '2027-06-07', // Birthday of SPB Yang di-Pertuan Agong
+  '2027-08-15', // Maulidur Rasul -- Birthday of Prophet Muhammad (provisional)
+  '2027-08-31', // National Day (Merdeka Day)
+  '2027-09-16', // Malaysia Day
+  '2027-12-25', // Christmas Day
 ];
 
 const mapWrap = document.getElementById('mapWrap');
