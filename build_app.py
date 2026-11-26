@@ -72,6 +72,9 @@ TEMPLATE = """<!DOCTYPE html>
     text-decoration: none;
   }
   .overview-link:hover { text-decoration: underline; }
+  #accountInfo { color: var(--muted); font-weight: 400; margin-left: 12px; }
+  #accountInfo a { color: var(--accent); font-weight: 600; text-decoration: none; }
+  #accountInfo a:hover { text-decoration: underline; }
   .legend { display: flex; gap: 16px; margin-top: 10px; flex-wrap: wrap; }
   .legend-item { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink); font-weight: 600; }
   .legend .swatch { width: 16px; height: 16px; border-radius: 4px; display: inline-block; }
@@ -247,6 +250,7 @@ TEMPLATE = """<!DOCTYPE html>
   .map-popover .slot.available:hover { background: var(--available-bg-hover); }
   .map-popover .slot.yours { background: var(--yours-bg); color: var(--yours); }
   .map-popover .slot.yours:hover { background: var(--yours-bg-hover); }
+  .map-popover .slot.closed { background: var(--unavailable-bg); color: var(--unavailable); cursor: not-allowed; }
   .modal-overlay {
     position: fixed;
     inset: 0;
@@ -318,6 +322,7 @@ TEMPLATE = """<!DOCTYPE html>
     <span class="legend-item"><span class="swatch unavailable"></span>Unavailable</span>
   </div>
   <a class="overview-link" href="/overview">View all bookings &rarr;</a>
+  <span class="overview-link" id="accountInfo"></span>
 </header>
 <div class="map-panel">
   <div class="map-wrap" id="mapWrap">
@@ -495,8 +500,6 @@ function renderBookingForm(room, date, slot) {
     <input type="tel" id="f_mobile" placeholder="Phone number">
     <label>ID (student / staff)</label>
     <input type="text" id="f_id">
-    <label>University email</label>
-    <input type="email" id="f_email">
     <label>Meeting information</label>
     <textarea id="f_meeting" placeholder="Enter your meeting description here"></textarea>
     <div class="form-error" id="f_error"></div>
@@ -512,7 +515,6 @@ function renderBookingForm(room, date, slot) {
     const name = document.getElementById('f_name').value.trim();
     const mobile = document.getElementById('f_mobile').value.trim();
     const studentId = document.getElementById('f_id').value.trim();
-    const email = document.getElementById('f_email').value.trim();
     const meeting = document.getElementById('f_meeting').value.trim();
     const errorEl = document.getElementById('f_error');
     const submitBtn = document.getElementById('f_submit');
@@ -529,13 +531,8 @@ function renderBookingForm(room, date, slot) {
       errorEl.style.display = 'block';
       return;
     }
-    if (!name || !mobile || !studentId || !email || !meeting) {
+    if (!name || !mobile || !studentId || !meeting) {
       errorEl.textContent = 'Please fill in all fields.';
-      errorEl.style.display = 'block';
-      return;
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      errorEl.textContent = 'Please enter a valid email address.';
       errorEl.style.display = 'block';
       return;
     }
@@ -544,7 +541,7 @@ function renderBookingForm(room, date, slot) {
     submitBtn.textContent = 'Booking...';
     const result = await createBookingOnServer(
       room, date, startTime, endTime, coveredSlots,
-      { name, mobile, id: studentId, email, meeting }
+      { name, mobile, id: studentId, meeting }
     );
     if (!result.ok) {
       errorEl.textContent = result.error;
@@ -592,7 +589,13 @@ function renderBookingDetails(room, date, slot, details) {
     const cancelBtn = document.getElementById('d_cancel');
     cancelBtn.disabled = true;
     cancelBtn.textContent = 'Cancelling...';
-    await cancelBookingOnServer(details.group_id);
+    const result = await cancelBookingOnServer(details.group_id);
+    if (!result.ok) {
+      alert(result.error);
+      cancelBtn.disabled = false;
+      cancelBtn.textContent = 'Cancel Booking';
+      return;
+    }
     await loadBookingsForDate(date);
     closeBookingModal();
     refreshAfterBookingChange();
@@ -633,6 +636,7 @@ function cacheKey(room, slot) { return room.name + '|' + slot; }
 async function loadBookingsForDate(date) {
   try {
     const res = await fetch('/api/bookings?date=' + encodeURIComponent(date));
+    if (res.status === 401) { window.location.href = '/login'; return; }
     if (!res.ok) throw new Error('server returned ' + res.status);
     bookingsCache = await res.json();
   } catch (err) {
@@ -665,19 +669,28 @@ async function createBookingOnServer(room, date, startTime, endTime, slots, deta
 
 async function cancelBookingOnServer(groupId) {
   const res = await fetch('/api/bookings/' + encodeURIComponent(groupId), { method: 'DELETE' });
-  return res.ok;
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    return { ok: false, error: body.error || ('Server error ' + res.status) };
+  }
+  return { ok: true };
 }
 
 function isSlotBooked(room, date, slot) { return getBooking(room, date, slot) !== null; }
+function isSlotMine(room, date, slot) {
+  const b = getBooking(room, date, slot);
+  return !!b && b.mine === true;
+}
 
 // Three-way status for a whole room on a given date, matching the legend:
-// 'closed' (red, the date itself isn't bookable), 'yours' (amber, every
-// slot is already booked -- on this single-browser prototype that always
-// means "booked from here"), or 'available' (green, at least one open slot).
+// 'closed' (red -- the date isn't bookable, or every slot is taken and none
+// of them are the logged-in user's), 'yours' (amber -- no free slots, but at
+// least one of the booked ones is the logged-in user's own), or 'available'
+// (green, at least one open slot).
 function roomDateStatus(room, date) {
   if (!isBookableDate(date)) return 'closed';
-  if (TIME_SLOTS.every(slot => isSlotBooked(room, date, slot))) return 'yours';
-  return 'available';
+  if (TIME_SLOTS.some(slot => !isSlotBooked(room, date, slot))) return 'available';
+  return TIME_SLOTS.some(slot => isSlotMine(room, date, slot)) ? 'yours' : 'closed';
 }
 
 function pctBox(box) {
@@ -719,10 +732,11 @@ function renderPopoverSlots(room) {
   }
   TIME_SLOTS.forEach(slot => {
     const booked = isSlotBooked(room, date, slot);
+    const mine = isSlotMine(room, date, slot);
     const btn = document.createElement('button');
-    btn.className = 'slot ' + (booked ? 'yours' : 'available');
+    btn.className = 'slot ' + (!booked ? 'available' : mine ? 'yours' : 'closed');
     btn.textContent = slot + (booked ? ' X' : '');
-    btn.addEventListener('click', () => openSlotModal(room, date, slot));
+    if (!booked || mine) btn.addEventListener('click', () => openSlotModal(room, date, slot));
     popoverSlots.appendChild(btn);
   });
 }
@@ -814,9 +828,10 @@ function renderGrid(filterText) {
 
       TIME_SLOTS.forEach(slot => {
         const td = document.createElement('td');
-        if (closedReason) {
+        const bookedByOther = !closedReason && isSlotBooked(room, date, slot) && !isSlotMine(room, date, slot);
+        if (closedReason || bookedByOther) {
           td.className = 'slot-cell closed';
-          td.title = room.name + ' - ' + slot + ' (' + closedReason + ', not bookable)';
+          td.title = room.name + ' - ' + slot + ' (' + (closedReason || 'already booked') + ', not bookable)';
         } else {
           const booked = isSlotBooked(room, date, slot);
           td.className = 'slot-cell ' + (booked ? 'yours' : 'available');
@@ -857,7 +872,18 @@ dateInput.addEventListener('change', async () => {
   }
 });
 
+async function loadAccountInfo() {
+  try {
+    const res = await fetch('/api/me');
+    if (!res.ok) return;
+    const me = await res.json();
+    document.getElementById('accountInfo').innerHTML =
+      'Logged in as ' + me.email + ' &middot; <a href="/logout">Log out</a>';
+  } catch (err) { /* not critical -- just leave the line blank */ }
+}
+
 (async () => {
+  loadAccountInfo();
   await loadBookingsForDate(dateInput.value);
   renderGrid('');
   renderHotspots();

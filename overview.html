@@ -26,6 +26,9 @@
   .wrap { max-width: 1000px; margin: 0 auto; }
   header { margin-bottom: 20px; }
   header a { color: var(--accent); text-decoration: none; font-size: 13px; font-weight: 600; }
+  #accountInfo { color: var(--muted); font-size: 13px; float: right; }
+  #accountInfo a { color: var(--accent); font-weight: 600; text-decoration: none; }
+  #accountInfo a:hover { text-decoration: underline; }
   h1 { font-size: 22px; margin: 8px 0 4px; }
   .sub { color: var(--muted); font-size: 13px; margin: 0; }
 
@@ -91,9 +94,10 @@
 <body>
 <div class="wrap">
   <header>
+    <span id="accountInfo"></span>
     <a href="/">&larr; Back to map</a>
     <h1>Bookings Overview</h1>
-    <p class="sub">Every booking in the system, across all rooms and dates.</p>
+    <p class="sub">The stats below cover everyone's bookings; the list further down shows only your own.</p>
   </header>
 
   <div class="stats" id="statCards"></div>
@@ -102,8 +106,9 @@
     <div id="topRooms"></div>
   </div>
 
+  <h2 style="font-size: 16px; margin: 0 0 10px;">My bookings</h2>
   <div class="controls">
-    <input type="text" id="searchBox" placeholder="Search by room, name, or email...">
+    <input type="text" id="searchBox" placeholder="Search by room or meeting...">
     <label><input type="checkbox" id="upcomingOnly"> Upcoming only</label>
   </div>
 
@@ -114,8 +119,6 @@
           <th>Room</th>
           <th>Date</th>
           <th>Time</th>
-          <th>Booked by</th>
-          <th>Email</th>
           <th>Meeting</th>
           <th>Status</th>
           <th></th>
@@ -140,8 +143,19 @@ function isUpcoming(b) {
 
 async function loadBookings() {
   const res = await fetch('/api/bookings/all');
+  if (res.status === 401) { window.location.href = '/login'; throw new Error('not logged in'); }
   if (!res.ok) throw new Error('server returned ' + res.status);
   ALL_BOOKINGS = await res.json();
+}
+
+async function loadAccountInfo() {
+  try {
+    const res = await fetch('/api/me');
+    if (!res.ok) return;
+    const me = await res.json();
+    document.getElementById('accountInfo').innerHTML =
+      'Logged in as ' + me.email + ' &middot; <a href="/logout">Log out</a>';
+  } catch (err) { /* not critical -- just leave the line blank */ }
 }
 
 function renderStats() {
@@ -190,19 +204,18 @@ function renderTable() {
   const search = document.getElementById('searchBox').value.trim().toLowerCase();
   const upcomingOnly = document.getElementById('upcomingOnly').checked;
 
-  let rows = ALL_BOOKINGS.slice();
+  let rows = ALL_BOOKINGS.filter(b => b.mine);
   if (upcomingOnly) rows = rows.filter(isUpcoming);
   if (search) {
     rows = rows.filter(b =>
       b.room.toLowerCase().includes(search) ||
-      b.name.toLowerCase().includes(search) ||
-      b.email.toLowerCase().includes(search)
+      b.meeting.toLowerCase().includes(search)
     );
   }
 
   const tbody = document.getElementById('tableBody');
   if (rows.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state">No bookings match.</div></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state">No bookings match.</div></td></tr>';
     return;
   }
 
@@ -214,8 +227,6 @@ function renderTable() {
         <td>${escapeHtml(b.room)}</td>
         <td>${escapeHtml(b.date)}</td>
         <td>${escapeHtml(timeLabel)}</td>
-        <td>${escapeHtml(b.name)}</td>
-        <td>${escapeHtml(b.email)}</td>
         <td>${escapeHtml(b.meeting)}</td>
         <td><span class="badge ${upcoming ? 'upcoming' : 'past'}">${upcoming ? 'Upcoming' : 'Past'}</span></td>
         <td><button class="cancel-btn" data-group-id="${escapeHtml(b.group_id)}">Cancel</button></td>
@@ -227,7 +238,14 @@ function renderTable() {
     btn.addEventListener('click', async () => {
       btn.disabled = true;
       btn.textContent = 'Cancelling...';
-      await fetch('/api/bookings/' + encodeURIComponent(btn.dataset.groupId), { method: 'DELETE' });
+      const res = await fetch('/api/bookings/' + encodeURIComponent(btn.dataset.groupId), { method: 'DELETE' });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        alert(body.error || ('Server error ' + res.status));
+        btn.disabled = false;
+        btn.textContent = 'Cancel';
+        return;
+      }
       await refreshAll();
     });
   });
@@ -243,9 +261,10 @@ async function refreshAll() {
 document.getElementById('searchBox').addEventListener('input', renderTable);
 document.getElementById('upcomingOnly').addEventListener('change', renderTable);
 
+loadAccountInfo();
 refreshAll().catch(() => {
   document.getElementById('tableBody').innerHTML =
-    '<tr><td colspan="8"><div class="empty-state">Could not reach the booking server. Make sure server.py is running and you opened this page via http://localhost:5000/overview.</div></td></tr>';
+    '<tr><td colspan="6"><div class="empty-state">Could not reach the booking server. Make sure server.py is running and you opened this page via http://localhost:5000/overview.</div></td></tr>';
 });
 </script>
 </body>
