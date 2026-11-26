@@ -30,6 +30,7 @@ TEMPLATE = """<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>__TITLE__ - Campus Map</title>
 <style>
   :root {
@@ -266,7 +267,7 @@ TEMPLATE = """<!DOCTYPE html>
     padding: 8px 10px;
     border: 1px solid var(--border);
     border-radius: 6px;
-    font-size: 14px;
+    font-size: 16px; /* 16px stops iOS Safari auto-zooming in on focus */
     font-family: inherit;
   }
   .modal-card textarea { resize: vertical; min-height: 60px; }
