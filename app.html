@@ -418,7 +418,7 @@ function renderBookingForm(room, date, slot) {
     </div>
   `;
   document.getElementById('f_cancel').addEventListener('click', closeBookingModal);
-  document.getElementById('f_submit').addEventListener('click', () => {
+  document.getElementById('f_submit').addEventListener('click', async () => {
     const startTime = document.getElementById('f_start').value;
     const endTime = document.getElementById('f_end').value;
     const name = document.getElementById('f_name').value.trim();
@@ -427,6 +427,7 @@ function renderBookingForm(room, date, slot) {
     const email = document.getElementById('f_email').value.trim();
     const meeting = document.getElementById('f_meeting').value.trim();
     const errorEl = document.getElementById('f_error');
+    const submitBtn = document.getElementById('f_submit');
 
     if (endTime <= startTime) {
       errorEl.textContent = 'End Time must be after Start Time.';
@@ -451,24 +452,29 @@ function renderBookingForm(room, date, slot) {
       return;
     }
 
-    const bookingDetails = {
-      name, mobile, id: studentId, email, meeting,
-      startTime, endTime, slots: coveredSlots,
-      bookedAt: new Date().toISOString(),
-    };
-    coveredSlots.forEach(s => saveBooking(room, date, s, bookingDetails));
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Booking...';
+    const result = await createBookingOnServer(
+      room, date, startTime, endTime, coveredSlots,
+      { name, mobile, id: studentId, email, meeting }
+    );
+    if (!result.ok) {
+      errorEl.textContent = result.error;
+      errorEl.style.display = 'block';
+      submitBtn.disabled = false;
+      submitBtn.textContent = '✓ Book';
+      return;
+    }
+    await loadBookingsForDate(date);
     closeBookingModal();
     refreshAfterBookingChange();
   });
 }
 
 function renderBookingDetails(room, date, slot, details) {
-  // Fall back gracefully for bookings saved before multi-slot ranges existed
-  // (they only have the single clicked slot, no startTime/endTime/slots).
   const [fallbackStart, fallbackEnd] = slot.split('-');
   const startTime = details.startTime || fallbackStart;
   const endTime = details.endTime || fallbackEnd;
-  const coveredSlots = details.slots || [slot];
 
   modalContent.innerHTML = `
     <h3>${room.name} &mdash; ${formatDisplayDate(date)}</h3>
@@ -494,8 +500,12 @@ function renderBookingDetails(room, date, slot, details) {
     </div>
   `;
   document.getElementById('d_close').addEventListener('click', closeBookingModal);
-  document.getElementById('d_cancel').addEventListener('click', () => {
-    coveredSlots.forEach(s => cancelBooking(room, date, s));
+  document.getElementById('d_cancel').addEventListener('click', async () => {
+    const cancelBtn = document.getElementById('d_cancel');
+    cancelBtn.disabled = true;
+    cancelBtn.textContent = 'Cancelling...';
+    await cancelBookingOnServer(details.group_id);
+    await loadBookingsForDate(date);
     closeBookingModal();
     refreshAfterBookingChange();
   });
@@ -522,18 +532,54 @@ function unbookableReason(dateStr) {
   return null;
 }
 
-function slotKey(room, date, slot) { return 'slotbooking:' + room.name + '|' + date + '|' + slot; }
+// Bookings now live in a real database behind server.py, not the browser.
+// This page fetches the whole day's bookings once per date shown and
+// keeps them in this cache; every render function below reads the cache
+// synchronously (unchanged from the localStorage version), so only the
+// "load a date" and "create/cancel a booking" paths need to be async.
+let bookingsCache = {};
+let bookingsCacheDate = null;
+
+function cacheKey(room, slot) { return room.name + '|' + slot; }
+
+async function loadBookingsForDate(date) {
+  try {
+    const res = await fetch('/api/bookings?date=' + encodeURIComponent(date));
+    if (!res.ok) throw new Error('server returned ' + res.status);
+    bookingsCache = await res.json();
+  } catch (err) {
+    bookingsCache = {};
+    alert('Could not reach the booking server at this address.\n\n' +
+      'Make sure you started it with "python server.py" and are viewing ' +
+      'this page at http://localhost:5000 -- opening app.html directly ' +
+      'as a file will not work anymore.');
+  }
+  bookingsCacheDate = date;
+}
+
 function getBooking(room, date, slot) {
-  const raw = localStorage.getItem(slotKey(room, date, slot));
-  if (!raw) return null;
-  try { return JSON.parse(raw); } catch (e) { return null; }
+  if (date !== bookingsCacheDate) return null; // cache not loaded for this date yet
+  return bookingsCache[cacheKey(room, slot)] || null;
 }
-function saveBooking(room, date, slot, details) {
-  localStorage.setItem(slotKey(room, date, slot), JSON.stringify(details));
+
+async function createBookingOnServer(room, date, startTime, endTime, slots, details) {
+  const res = await fetch('/api/bookings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(Object.assign({ room: room.name, date, startTime, endTime, slots }, details)),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    return { ok: false, error: body.error || ('Server error ' + res.status) };
+  }
+  return { ok: true };
 }
-function cancelBooking(room, date, slot) {
-  localStorage.removeItem(slotKey(room, date, slot));
+
+async function cancelBookingOnServer(groupId) {
+  const res = await fetch('/api/bookings/' + encodeURIComponent(groupId), { method: 'DELETE' });
+  return res.ok;
 }
+
 function isSlotBooked(room, date, slot) { return getBooking(room, date, slot) !== null; }
 
 // Three-way status for a whole room on a given date, matching the legend:
@@ -714,7 +760,8 @@ availableOnlyBox.addEventListener('change', () => {
   renderGrid(searchBox.value);
   renderHotspots();
 });
-dateInput.addEventListener('change', () => {
+dateInput.addEventListener('change', async () => {
+  await loadBookingsForDate(dateInput.value);
   renderGrid(searchBox.value);
   renderHotspots();
   if (selectedId !== null && mapPopover.classList.contains('open')) {
@@ -722,8 +769,11 @@ dateInput.addEventListener('change', () => {
   }
 });
 
-renderGrid('');
-renderHotspots();
+(async () => {
+  await loadBookingsForDate(dateInput.value);
+  renderGrid('');
+  renderHotspots();
+})();
 </script>
 </body>
 </html>
