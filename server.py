@@ -79,6 +79,42 @@ def floorplan_image():
     return send_from_directory(APP_DIR, "floorplan.png")
 
 
+@app.route("/overview")
+def overview_page():
+    return send_from_directory(APP_DIR, "overview.html")
+
+
+@app.route("/api/bookings/all")
+def list_all_bookings():
+    """Every booking, one entry per group_id (a multi-slot booking shares
+    one group_id across several rows) -- powers the overview page."""
+    db = get_db()
+    rows = db.execute(
+        "SELECT * FROM bookings ORDER BY date ASC, start_time ASC"
+    ).fetchall()
+    grouped = {}
+    for row in rows:
+        gid = row["group_id"]
+        if gid not in grouped:
+            grouped[gid] = {
+                "group_id": gid,
+                "room": row["room_name"],
+                "date": row["date"],
+                "startTime": row["start_time"],
+                "endTime": row["end_time"],
+                "name": row["name"],
+                "mobile": row["mobile"],
+                "id": row["student_id"],
+                "email": row["email"],
+                "meeting": row["meeting"],
+                "bookedAt": row["booked_at"],
+                "slotCount": 0,
+            }
+        grouped[gid]["slotCount"] += 1
+    bookings = sorted(grouped.values(), key=lambda b: (b["date"], b["startTime"]))
+    return jsonify(bookings)
+
+
 @app.route("/api/bookings")
 def list_bookings():
     """All bookings for one date, across every room -- the client fetches

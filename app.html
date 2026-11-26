@@ -35,6 +35,15 @@
   }
   header h1 { margin: 0; font-size: 20px; }
   header p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+  .overview-link {
+    display: inline-block;
+    margin-top: 8px;
+    color: var(--accent);
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .overview-link:hover { text-decoration: underline; }
   .legend { display: flex; gap: 16px; margin-top: 10px; flex-wrap: wrap; }
   .legend-item { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink); font-weight: 600; }
   .legend .swatch { width: 16px; height: 16px; border-radius: 4px; display: inline-block; }
@@ -280,6 +289,7 @@
     <span class="legend-item"><span class="swatch yours"></span>Your Booking</span>
     <span class="legend-item"><span class="swatch unavailable"></span>Unavailable</span>
   </div>
+  <a class="overview-link" href="/overview">View all bookings &rarr;</a>
 </header>
 <div class="map-panel">
   <div class="map-wrap" id="mapWrap">
