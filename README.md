@@ -69,11 +69,14 @@ from this machine. Booking data lives in `bookings.db` next to `server.py`
 - No login system — a booking just shows as "yours" in whichever browser
   made it, there's no real identity check beyond the details typed into the
   booking form.
-- `PUBLIC_HOLIDAYS` in `build_app.py` holds Malaysia's 2026 national public
-  holidays. Six of them (Chinese New Year, Hari Raya Aidilfitri, Hari Raya
-  Haji, Wesak Day, Awal Muharram, Maulidur Rasul) follow the Islamic/lunar
-  calendar and are provisional until the government confirms them closer to
-  the date — re-check against the official gazette. The list needs new
-  dates added for each new year.
+- `PUBLIC_HOLIDAYS` in `build_app.py` holds Malaysia's national public
+  holidays for 2026-2027. Several of them (Chinese New Year, Hari Raya
+  Aidilfitri, Hari Raya Haji, Wesak Day, Awal Muharram, Maulidur Rasul)
+  follow the Islamic/lunar calendar and are provisional until the government
+  confirms them closer to the date — re-check against the official gazette.
+  It stops at 2027 because that's as far out as reliable calculated dates
+  were available when this was written (2028's Islamic dates were still
+  marked provisional everywhere checked, and Wesak Day wasn't listed at
+  all) — add later years once a source has real dates for them.
 - Single-user, local-only by design (not set up for multiple people sharing
   one server over a network).
