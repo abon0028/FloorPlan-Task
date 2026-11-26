@@ -27,6 +27,10 @@ possible to their actual location on the map.
 - **Backend** (`server.py`) — a small local Flask server with a SQLite
   database (`bookings.db`) that the web app talks to, so bookings persist in
   a real file instead of one browser's local storage.
+- **Bookings overview** (`overview.html`, at `/overview`) — every booking in
+  the system in one list (not just one date), with simple stats
+  (total/upcoming/past, rooms booked at least once), a "most-booked rooms"
+  chart, search, an "upcoming only" filter, and cancelling from the list.
 
 ## Setup
 
