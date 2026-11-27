@@ -299,13 +299,19 @@ def forgot_password_submit():
     db.commit()
 
     reset_link = request.host_url.rstrip("/") + "/reset-password?token=" + token
-    send_email(
-        email,
-        "Reset your campus booking password",
-        "Someone (hopefully you) asked to reset the password for this account.\n\n"
-        f"Reset it here (expires in 1 hour): {reset_link}\n\n"
-        "If you didn't request this, you can ignore this email.",
-    )
+    try:
+        send_email(
+            email,
+            "Reset your campus booking password",
+            "Someone (hopefully you) asked to reset the password for this account.\n\n"
+            f"Reset it here (expires in 1 hour): {reset_link}\n\n"
+            "If you didn't request this, you can ignore this email.",
+        )
+    except Exception as e:
+        # A misconfigured SMTP password/host shouldn't surface as a raw 500 --
+        # log it (visible in the server's error log) and still return the
+        # same generic response, since the reset token was saved regardless.
+        print(f"[send_email failed] {e}", flush=True)
     return generic_response
 
 
